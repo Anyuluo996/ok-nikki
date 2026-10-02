@@ -35,3 +35,51 @@ msgstr "商城"
 
 msgid "Claimed"
 msgstr "已领取"
+
+msgid "Whim Calendar"
+msgstr "奇想日历"
+
+msgid "Open the Whim Calendar, claim available rewards and check daily quests."
+msgstr "打开奇想日历, 领取可领奖励并查看每日任务。"
+
+msgid "Claim Calendar Rewards"
+msgstr "领取日历奖励"
+
+msgid "Open Zhaoxi Quests"
+msgstr "查看朝夕心愿"
+
+msgid "Open the Zhaoxi daily quest page to check progress."
+msgstr "打开朝夕心愿每日任务页查看进度。"
+
+msgid "Calendar"
+msgstr "日历"
+
+msgid "Zhaoxi Quests"
+msgstr "朝夕心愿"
+
+msgid "Meiyali Dig"
+msgstr "美鸭梨挖掘"
+
+msgid "Claim finished Meiyali dig rewards and start digging again."
+msgstr "领取美鸭梨挖掘成品并继续挖掘。"
+
+msgid "Dig Again After Harvest"
+msgstr "收获后继续挖掘"
+
+msgid "Start the same dig again right after harvesting."
+msgstr "收获后用相同物资立即开始下一轮挖掘。"
+
+msgid "Dig"
+msgstr "挖掘"
+
+msgid "In Progress"
+msgstr "挖掘中"
+
+msgid "Need Manual Setup"
+msgstr "需手动设置"
+
+msgid "Harvested & Restarted"
+msgstr "已收获并续挖"
+
+msgid "Harvested"
+msgstr "已收获"

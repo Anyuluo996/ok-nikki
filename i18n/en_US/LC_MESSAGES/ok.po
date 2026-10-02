@@ -35,3 +35,51 @@ msgstr "Shop"
 
 msgid "Claimed"
 msgstr "Claimed"
+
+msgid "Whim Calendar"
+msgstr "Whim Calendar"
+
+msgid "Open the Whim Calendar, claim available rewards and check daily quests."
+msgstr "Open the Whim Calendar, claim available rewards and check daily quests."
+
+msgid "Claim Calendar Rewards"
+msgstr "Claim Calendar Rewards"
+
+msgid "Open Zhaoxi Quests"
+msgstr "Open Zhaoxi Quests"
+
+msgid "Open the Zhaoxi daily quest page to check progress."
+msgstr "Open the Zhaoxi daily quest page to check progress."
+
+msgid "Calendar"
+msgstr "Calendar"
+
+msgid "Zhaoxi Quests"
+msgstr "Zhaoxi Quests"
+
+msgid "Meiyali Dig"
+msgstr "Meiyali Dig"
+
+msgid "Claim finished Meiyali dig rewards and start digging again."
+msgstr "Claim finished Meiyali dig rewards and start digging again."
+
+msgid "Dig Again After Harvest"
+msgstr "Dig Again After Harvest"
+
+msgid "Start the same dig again right after harvesting."
+msgstr "Start the same dig again right after harvesting."
+
+msgid "Dig"
+msgstr "Dig"
+
+msgid "In Progress"
+msgstr "In Progress"
+
+msgid "Need Manual Setup"
+msgstr "Need Manual Setup"
+
+msgid "Harvested & Restarted"
+msgstr "Harvested & Restarted"
+
+msgid "Harvested"
+msgstr "Harvested"
