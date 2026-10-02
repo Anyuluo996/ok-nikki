@@ -116,3 +116,12 @@ msgstr "Confirmed"
 
 msgid "Weekly Done"
 msgstr "Weekly Done"
+
+msgid "Passport"
+msgstr "Passport"
+
+msgid "Open the Whim Journey (battle pass) and claim free rewards."
+msgstr "Open the Whim Journey (battle pass) and claim free rewards."
+
+msgid "Claim Passport Rewards"
+msgstr "Claim Passport Rewards"

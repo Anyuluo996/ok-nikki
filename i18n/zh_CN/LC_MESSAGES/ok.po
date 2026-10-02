@@ -116,3 +116,12 @@ msgstr "已确认"
 
 msgid "Weekly Done"
 msgstr "本周已领"
+
+msgid "Passport"
+msgstr "通行证"
+
+msgid "Open the Whim Journey (battle pass) and claim free rewards."
+msgstr "打开奇迹之旅(通行证), 领取免费轨道奖励。"
+
+msgid "Claim Passport Rewards"
+msgstr "领取通行证奖励"

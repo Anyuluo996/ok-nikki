@@ -31,6 +31,7 @@ class MyBaseTask(BaseTask):
         'shop': re.compile('星途珍存|清空购物车|历史低价'),
         'chat': re.compile('点击输入消息|跳转至好友'),
         'realm': re.compile('心之突破幻境|素材激化幻境|祝福闪光幻境|魔物试炼幻境|快速挑战'),
+        'passport': re.compile('悠远颂歌|旅行任务'),
         'calendar': re.compile('阅历挑战|每日灵感'),
     }
 

@@ -37,7 +37,7 @@ config = {
     'windows': {  # 无限暖暖 Windows 客户端
         'exe': ['X6Game-Win64-Shipping.exe'], #游戏主进程(启动器是 InfinityNikki Launcher.exe)
         'hwnd_class': 'UnrealWindow', #UE5 窗口类名, 配合 exe 名精确匹配
-        'start_exe': False, #不自动拉起游戏, 请先手动启动游戏并进入大世界
+        'start_exe': True, #自动拉起游戏: 窗口不在时用 devices.json 里记住的 full_path 启动
         'interaction': [NikkiInteraction, 'Pynput', 'PostMessage', 'Genshin', 'PyDirect'], #NikkiInteraction: 后台保活渲染+定时消息, 见 src/device/NikkiInteraction.py
         'capture_method': ['WGC', 'BitBlt_RenderFull', 'BitBlt'],  # 游戏需窗口化; 全屏下 WGC 首帧会挂
         'check_hdr': False, #当用户开启AutoHDR时候提示用户, 但不禁止使用
@@ -64,6 +64,7 @@ config = {
         [ "src.tasks.DailyTask", "DailyTask" ],
         [ "src.tasks.CalendarTask", "CalendarTask" ],
         [ "src.tasks.RealmTask", "RealmTask" ],
+        [ "src.tasks.PassportTask", "PassportTask" ],
         [ "src.tasks.MineTask", "MineTask" ],
         ["ok", "DiagnosisTask"],
     ],

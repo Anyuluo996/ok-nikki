@@ -9,6 +9,7 @@
 """
 import argparse
 import os
+import subprocess
 import sys
 import threading
 import time
@@ -18,6 +19,37 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from ok import OK, og
 
 from src.config import config
+
+
+def click_launcher_start_button():
+    """官方启动器(xstarter, 标题「无限暖暖」)右下角的「启动游戏」按钮, 按窗口比例点击
+    (游戏本体窗口类是 UnrealWindow, 在此排除; 比例坐标与 DPI 无关)"""
+    import win32api
+    import win32con
+    import win32gui
+    target = None
+
+    def enum_handler(hwnd, _):
+        nonlocal target
+        if win32gui.IsWindowVisible(hwnd) and win32gui.GetWindowText(hwnd) == '无限暖暖' \
+                and win32gui.GetClassName(hwnd) != 'UnrealWindow':
+            target = hwnd
+
+    try:
+        win32gui.EnumWindows(enum_handler, None)
+    except Exception:
+        return False
+    if not target:
+        return False
+    left, top, right, bottom = win32gui.GetWindowRect(target)
+    x = int(left + (right - left) * 0.834)
+    y = int(top + (bottom - top) * 0.889)
+    win32api.SetCursorPos((x, y))
+    time.sleep(0.2)
+    win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+    time.sleep(0.15)
+    win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+    return True
 
 
 def main():
@@ -36,6 +68,36 @@ def main():
     ok = OK(c)
     dm = ok.device_manager
     dm.do_refresh(True)
+
+    # —— 自动拉起游戏: 窗口不在时用记住的完整路径启动 ——
+    # 直启 exe 会先弹官方启动器(xstarter), 需代点「启动游戏」; 之后才是真正的游戏窗口
+    if not (dm.hwnd_window and dm.hwnd_window.hwnd):
+        device = dm.get_preferred_device()
+        exe_path = (device or {}).get('full_path') or (device or {}).get('pc_full_path')
+        if exe_path and os.path.exists(exe_path):
+            print(f'game not running, launching: {exe_path}', flush=True)
+            subprocess.Popen([exe_path], cwd=os.path.dirname(exe_path))
+            launch_t0 = time.time()
+            clicks = 0
+            last_click = 0.0
+            deadline = launch_t0 + 600 # 冷启动+启动器+进游戏窗口, 留足余量
+            while time.time() < deadline:
+                time.sleep(3)
+                dm.do_refresh(True)
+                if dm.hwnd_window and dm.hwnd_window.hwnd:
+                    print(f'game window found after {int(time.time()-launch_t0)}s', flush=True)
+                    break
+                # 启动器出现后代点「启动游戏」(最多 3 次, 间隔 15s)
+                if clicks < 3 and time.time() - launch_t0 > 12 and time.time() - last_click > 15:
+                    if click_launcher_start_button():
+                        clicks += 1
+                        last_click = time.time()
+                        print(f'clicked launcher start button (#{clicks})', flush=True)
+            else:
+                print('LAUNCH TIMEOUT: game window did not appear in 600s', flush=True)
+        else:
+            print(f'game not running and exe path unknown: {exe_path}', flush=True)
+
     if dm.get_preferred_device() is None:
         dm.set_preferred_device()
     dm.do_start()
@@ -148,6 +210,10 @@ def main():
     if not cal_done:
         run_one(CalendarTask)
         run_one(RealmTask, **realm_overrides)
+
+    # —— 通行证: J 打开奇迹之旅领免费奖励(需在大世界) ——
+    from src.tasks.PassportTask import PassportTask
+    run_one(PassportTask)
 
     stop.set()
     try:
