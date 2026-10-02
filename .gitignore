@@ -67,3 +67,14 @@ pip-log.txt
 pip-delete-this-directory.txt
 autohelper
 working_images/
+cache/
+
+# 运行产物
+*.log
+probe_*.json
+calib_*.json
+calib_run.log
+session_progress.log
+admin_probe.log
+admin_session.log
+daily_run*.log

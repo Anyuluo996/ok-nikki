@@ -1,7 +1,7 @@
-site_name: ok-script-app
-site_description: Build Windows, Android emulator, and browser automation apps with ok-script.
-repo_name: ok-oldking/ok-script-app
-repo_url: https://github.com/ok-oldking/ok-script-app
+site_name: ok-nikki
+site_description: 无限暖暖 (Infinity Nikki) Windows 客户端自动化工具, 基于 ok-script.
+repo_name: your-github-name/ok-nikki # TODO: 换成你自己的仓库
+repo_url: https://github.com/your-github-name/ok-nikki # TODO
 edit_uri: edit/master/docs/
 
 docs_dir: docs

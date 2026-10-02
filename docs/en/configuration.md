@@ -56,4 +56,4 @@ Edit the app name, profile names, and `git_url` values in `pyappify.yml`:
 - The source repository can be used during early testing.
 - With a separate update repository, update the sync targets and secrets in `.github/workflows/build.yml`.
 
-After initialization, search for stale `ok-script-app`, `ok-oldking`, repository URLs, installer names, and community links inherited from the template.
+Repository initialization is already done. Before releasing, set your own repository in `pyappify.yml` (`git_url`) and `mkdocs.yml` (`repo_url`).

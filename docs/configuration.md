@@ -56,4 +56,4 @@ profile，然后重新编译对应的 `requirements.txt` 或 `requirements-web.t
 - 前期测试可以直接使用源码仓库。
 - 使用独立更新仓库时，同步修改 `.github/workflows/build.yml` 中的同步目标和 Secrets。
 
-初始化后，搜索并替换模板遗留的 `ok-script-app`、`ok-oldking`、仓库 URL、安装包名称和社区链接。
+仓库初始化已完成。正式发布前, 把 `pyappify.yml` 中的 `git_url` 和 `mkdocs.yml` 中的 `repo_url` 改成自己的仓库地址即可。

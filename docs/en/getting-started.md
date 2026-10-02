@@ -1,22 +1,8 @@
 # Quick Start
 
-## 1. Create a Repository From the Template
+## 1. Install Python 3.12 and project dependencies
 
-Click [Use this template](https://github.com/ok-oldking/ok-script-app/generate) on GitHub, create your repository, and clone it:
-
-```bash
-git clone https://github.com/<your-github-name>/<your-repository>.git
-cd <your-repository>
-```
-
-Choose either initialization path:
-
-- **Use an AI coding tool (recommended):** In Codex, enter `Use $initialize-ok-script-app to initialize this repository.` With another tool, ask it to read `.agents/skills/initialize-ok-script-app/SKILL.md` first. The initializer gathers the game, runtime targets, repositories, icons, and first-task requirements before editing files.
-- **Initialize manually:** Continue with this page and the linked guides.
-
-## 2. Install Python 3.12 and Project Dependencies
-
-Install [Python 3.12.10](https://www.python.org/downloads/release/python-31210/), then run:
+Install [Python 3.12.10](https://www.python.org/downloads/release/python-31210/), then run inside the repository:
 
 ```powershell
 py -3.12 -m venv .venv
@@ -25,50 +11,57 @@ $PypiIndex = "https://pypi.org/simple/"
 python -m pip install --index-url $PypiIndex --upgrade pip
 ```
 
-Install one dependency profile for the app's runtime target. For the Qt desktop UI:
+Pick one profile for the UI. Qt desktop UI:
 
 ```powershell
 python -m pip install --index-url $PypiIndex --no-deps --upgrade -r requirements.txt
 python main_debug.py
 ```
 
-For the web UI:
+Web UI:
 
 ```powershell
 python -m pip install --index-url $PypiIndex --no-deps --upgrade -r requirements-web.txt
 python web_main_debug.py
 ```
 
-The lock files provide reproducible installations and are recommended for daily
-development. To resolve the latest compatible dependencies directly from
-`pyproject.toml`, use the applicable command instead:
+The lock files are the recommended daily-development install path. To resolve
+the latest compatible dependencies from `pyproject.toml` instead, use:
 
 ```powershell
 python -m pip install --index-url $PypiIndex ".[qt]"
 python -m pip install --index-url $PypiIndex ".[web]"
 ```
 
-Run only the command for your target. The official PyPI index endpoint for pip is
-`https://pypi.org/simple/`, not the website root `https://pypi.org/`. Using the
-website root can report `No matching distribution found` even when the package
-exists.
+The official PyPI pip index must include `/simple/`; `https://pypi.org/` is not
+a valid index URL and leads to `No matching distribution found`.
 
-Administrator privileges are normally unnecessary. If the target game runs as administrator, launch the automation app at the same privilege level or capture and input may not work.
+Administrator rights are usually not required. If the game runs as
+administrator, the automation app must run with the same rights, otherwise
+capture or input may not work.
 
-## 3. Initialize the App
+## 2. Run the first task
 
-1. Set the application identity, runtime targets, icons, and update repository in [App configuration](configuration.md).
-2. Create and register the first task with [Task development](tasks.md).
-3. Start Debug mode:
+1. Start Infinity Nikki manually and enter the open world.
+2. Start debug mode (draws recognition boxes for calibration):
 
 ```powershell
 python main_debug.py
 ```
 
-4. Run tests:
+3. Click "Screenshot Test" to verify capture.
+4. Run the Daily Quest task. If a flow gets stuck, check the auto-saved
+   screenshots under `screenshots/` and calibrate the OCR keywords in
+   `src/tasks/DailyTask.py`.
+
+## 3. Day-to-day development
+
+1. Create and register new tasks per [Task development](tasks.md).
+2. Run tests:
 
 ```powershell
 python -m unittest tests.TestMain
 ```
 
-5. After validation, configure the workflows and push a tag using [Packaging and release](release.md).
+3. When verified, follow [Packaging and release](release.md) and push a tag
+   (set your own `git_url` in `pyappify.yml` first).

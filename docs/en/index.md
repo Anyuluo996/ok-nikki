@@ -1,42 +1,34 @@
-# ok-script-app
+# ok-nikki
 
 [中文](../index.md)
 
-ok-script-app is a Python automation project template built on [ok-script](https://github.com/ok-oldking/ok-script), for native Windows games, Android emulators, and browser games.
+ok-nikki is an automation tool for the Infinity Nikki Windows client, built on
+[ok-script](https://github.com/ok-oldking/ok-script), driving the game with
+computer vision and OCR.
 
-It is not a finished automation tool for a specific game. The template includes a runnable GUI, task and configuration-widget examples, OCR, template matching, tests, i18n, EXE packaging, and update/release configuration.
+> ⚠️ For personal learning only. Comply with the game terms of service; use at your own risk.
 
 ## Start Here
 
-1. Create and initialize a repository with the [Quick start](getting-started.md).
-2. Select at least one runtime target in [App configuration](configuration.md).
-3. Create and register the first task with [Task development](tasks.md).
+1. Install dependencies and run with the [Quick start](getting-started.md).
+2. Review the runtime target in [App configuration](configuration.md).
+3. Add new tasks with [Task development](tasks.md).
 4. Build an EXE with [Packaging and release](release.md).
 
-## Demo
+## Existing Tasks
 
-### API List and Script Recording
+- **Daily Quest**: opens the pause menu and claims mail attachments plus the
+  free shop pack. OCR keywords live in `src/tasks/DailyTask.py`; when a keyword
+  misses, the task saves a screenshot under `screenshots/` for calibration in
+  debug mode.
 
-![API list and script recording](../images/image_scripting.png)
+## Project Layout
 
-### Capture and Interaction Methods
-
-![Capture and interaction methods](../images/image_capture.png)
-
-### Annotation and Template Matching
-
-![Template matching](../images/image_template.png)
-
-![Annotation management](../images/image_markup.png)
-
-## Included
-
-- `MyOneTimeTask` and `MyTriggerTask` examples.
-- Drop-down, boolean, numeric, text, list, multi-selection, file, global configuration, and button widgets.
-- OCR, relative-region recognition, and template matching examples.
-- `ConfigOption` global configuration and `TaskTestCase` test examples.
-- gettext i18n sources and compiled catalogs.
-- PyAppify and GitHub Actions packaging/release configuration.
+- `src/config.py`: app and runtime target (game exe, window class, resolution).
+- `src/tasks/MyBaseTask.py`: Esc-menu navigation and OCR debugging helpers.
+- `src/tasks/DailyTask.py`: the daily quest task.
+- `assets/`: COCO template annotations (for future template matching).
+- `i18n/`: gettext catalogs (en_US / zh_CN).
 
 ## Further Reading (Chinese)
 
