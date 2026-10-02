@@ -14,6 +14,12 @@ class RealmTask(MyBaseTask):
     LEVEL = re.compile('奇格格达|卷卷')
     QUICK_PLAY = re.compile('快速挑战')
     WEEKLY_COUNT = re.compile(r'每周幻境')
+    # 朝夕心愿任务关键词 → 对应幻境(同 Whimbox zxxy_task_info_list 的挑战类映射)
+    TASK_REALM_MAP = [
+        (re.compile('魔物试炼'), '魔物试炼幻境'),
+        (re.compile('祝福闪光'), '祝福闪光幻境'),
+        (re.compile('活跃能量'), '心之突破幻境'),  # 体力任务: 任意幻境快速挑战都计入
+    ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -67,46 +73,64 @@ class RealmTask(MyBaseTask):
                 return False
         return self.page_sig() == 'realm'
 
+    def pick_realm(self):
+        """按朝夕心愿任务文本决定打哪个幻境; 任务进度 N>=M 视为已完成跳过"""
+        texts = getattr(MyBaseTask, 'zhaoxi_task_texts', [])
+        for pat, realm in self.TASK_REALM_MAP:
+            for detail in texts:
+                if not pat.search(detail):
+                    continue
+                m = re.search(r'(\d+)\s*/\s*(\d+)', detail)
+                if m and int(m.group(1)) >= int(m.group(2)):
+                    continue # 该任务已完成
+                return realm
+        return None
+
     def quick_challenge(self):
-        """打哪个 boss 按朝夕心愿任务文本决定(愿望大师=奇格格达/守护兽=卷卷),
-        任务没提就打配置的默认关卡"""
+        """打哪个幻境按朝夕心愿任务文本决定; 没提就按配置(默认周本, 一周一次)"""
         count = int(self.config.get('Challenge Count') or 1)
-        texts = ' '.join(getattr(MyBaseTask, 'zhaoxi_task_texts', []))
-        if '卷卷' in texts or '守护兽' in texts:
-            level_name = '卷卷'
-        elif '愿望大师' in texts or '奇格格达' in texts:
-            level_name = '奇格格达'
+        realm = self.pick_realm()
+        if realm:
+            self.log_info(f'RealmTask: zhaoxi tasks need realm = {realm}')
         else:
-            level_name = self.config.get('Realm Level') or '奇格格达'
-        self.log_info(f'RealmTask: zhaoxi texts decide level = {level_name}')
+            realm = '心之突破幻境'
+            texts = ' '.join(getattr(MyBaseTask, 'zhaoxi_task_texts', []))
+            if '卷卷' in texts or '守护兽' in texts:
+                level_name = '卷卷'
+            elif '愿望大师' in texts or '奇格格达' in texts:
+                level_name = '奇格格达'
+            else:
+                level_name = self.config.get('Realm Level') or '奇格格达'
+            self.log_info(f'RealmTask: no specific realm task, default weekly, level = {level_name}')
         for i in range(count):
-            self.log_info(f'RealmTask: quick challenge #{i + 1}/{count}')
-            if not self.enter_weekly_and_run(level_name):
+            self.log_info(f'RealmTask: quick challenge #{i + 1}/{count} @ {realm}')
+            if not self.enter_realm_and_run(realm, level_name if realm == '心之突破幻境' else None):
                 self.log_info(f'RealmTask: challenge #{i + 1} did not complete.')
                 break
-            self.info_set(self.tr('Realm'), f'{level_name} {self.tr("Challenged")} {i + 1}/{count}')
+            self.info_set(self.tr('Realm'), f'{realm} {self.tr("Challenged")} {i + 1}/{count}')
         # 退出由 run() 的 back_to_world 处理(可关弹窗)
 
-    def enter_weekly_and_run(self, level_name):
+    def enter_realm_and_run(self, realm_name, level_name=None):
+        """进入指定幻境(日历挑战列表内联或幻境 hub 页都可点), 选关并快速挑战"""
         boxes = self.ocr(log=False)
-        if self.page_sig(boxes) != 'realm' or not any('心之突破幻境' in b.name for b in boxes):
+        if self.page_sig(boxes) != 'realm' or not any(realm_name in b.name for b in boxes):
             # 不在幻境相关页: 从日历重来
             if not self.open_whim_calendar() or not self.open_realm_hub():
                 return False
             boxes = self.ocr(log=False)
-        entry = next((b for b in boxes if self.WEEKLY_ENTRY.search(b.name)), None)
+        entry = next((b for b in boxes if realm_name in b.name), None)
         if not entry:
-            self.debug_screenshot('realm_no_weekly_entry')
+            self.debug_screenshot('realm_no_entry')
             return False
-        # 心之突破幻境可能在日历挑战列表内联, 也可能在幻境 hub 页, 都可直接点
         self.click_box(entry, down_time=0.15, after_sleep=3)
-        # 关卡列表: 点配置的关卡名(奇格格达/卷卷)
-        level = self.wait_ocr(match=re.compile(level_name), time_out=6, log=True)
-        if not level:
-            self.debug_screenshot('realm_no_level')
-            return False
-        self.click_box(level[0], down_time=0.15, after_sleep=1.5)
-        quick = self.wait_ocr(match=self.QUICK_PLAY, time_out=5, log=True)
+        if level_name:
+            # 心之突破有关卡列表(奇格格达/卷卷); 其他幻境默认选中, 直接找快速挑战
+            level = self.wait_ocr(match=re.compile(level_name), time_out=6, log=True)
+            if not level:
+                self.debug_screenshot('realm_no_level')
+                return False
+            self.click_box(level[0], down_time=0.15, after_sleep=1.5)
+        quick = self.wait_ocr(match=self.QUICK_PLAY, time_out=6, log=True)
         if not quick:
             self.debug_screenshot('realm_no_quick')
             return False
@@ -116,15 +140,16 @@ class RealmTask(MyBaseTask):
         if not cands:
             self.debug_screenshot('realm_no_inject')
             return False
-        # 本周奖励一周只领一次: 剩余 0/1 就取消跳过, 不浪费体力
-        joined = ' '.join(b.name for b in self.ocr(log=False))
-        if re.search(r'剩余奖励次数[^0-9]*0\s*/\s*1', joined):
-            self.info_set(self.tr('Weekly Realm'), self.tr('Weekly Done'))
-            self.log_info('RealmTask: weekly reward already claimed this week, skip.')
-            cancel = next((b for b in self.ocr(log=False) if b.name.strip() == '取消'), None)
-            if cancel:
-                self.click_box(cancel, down_time=0.15, after_sleep=1.5)
-            return True
+        if realm_name == '心之突破幻境':
+            # 周本奖励一周只领一次: 剩余 0/1 就取消跳过, 不浪费体力
+            joined = ' '.join(b.name for b in self.ocr(log=False))
+            if re.search(r'剩余奖励次数[^0-9]*0\s*/\s*1', joined):
+                self.info_set(self.tr('Weekly Realm'), self.tr('Weekly Done'))
+                self.log_info('RealmTask: weekly reward already claimed this week, skip.')
+                cancel = next((b for b in self.ocr(log=False) if b.name.strip() == '取消'), None)
+                if cancel:
+                    self.click_box(cancel, down_time=0.15, after_sleep=1.5)
+                return True
         inject = max(cands, key=lambda b: b.y)
         self.click_box(inject, down_time=0.15, after_sleep=3)
         self.park_cursor()
