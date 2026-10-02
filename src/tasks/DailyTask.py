@@ -66,7 +66,7 @@ class DailyTask(MyBaseTask):
             self.debug_screenshot('mail_page_not_open')
             self.close_pause_menu()
             return
-        self.move_relative(*self.SAFE_POS) # 移开鼠标, 防止悬停弹出物品 tooltip 挡住按钮
+        self.park_cursor() # 移开真实光标到角落, 防止悬停弹出物品 tooltip 挡住按钮
         self.sleep(0.5)
         claim = self.wait_ocr(match=self.CLAIM, time_out=3, log=True)
         if not claim:
@@ -81,13 +81,21 @@ class DailyTask(MyBaseTask):
         self.close_pause_menu()
 
     def claim_shop_free(self):
-        # 商城入口在大世界右上角快捷排; 热区是图标(文字上方), 点文字无效
-        entry = self.wait_ocr(match=self.SHOP_ENTRY, time_out=3, log=True)
-        if entry:
-            box = entry[0]
-            self.click(box.x + box.width / 2, box.y - 40, down_time=0.15, after_sleep=3)
-        else: # OCR 不中退回坐标(右上角第一个图标)
-            self.click(*self.SHOP_ICON_POS, down_time=0.15, after_sleep=3)
+        # 商城入口在大世界右上角快捷排: 热区是图标(文字上方); 优先热键 H, 图标真实点击兜底
+        if not self.wait_page('shop', 1):
+            self.send_key('h', after_sleep=3)
+        if not self.wait_page('shop', 2):
+            entry = self.wait_ocr(match=self.SHOP_ENTRY, time_out=3, log=True)
+            if entry:
+                box = entry[0]
+                self.real_click(box.x + box.width / 2, box.y - 40)
+            else: # OCR 不中退回坐标(右上角第一个图标)
+                self.real_click(self.SHOP_ICON_POS[0] * 1920, self.SHOP_ICON_POS[1] * 1080)
+        if not self.wait_page('shop', 3):
+            self.log_info('DailyTask: shop page did not open (hotkey H and icon click both missed).')
+            self.debug_screenshot('shop_not_open')
+            self.close_pause_menu()
+            return
         # 页内先找「免费」(每日礼包), 再找「一键领取」(循星之旅等进度奖励)
         target = self.wait_ocr(match=self.FREE, time_out=4, log=True)
         if not target:

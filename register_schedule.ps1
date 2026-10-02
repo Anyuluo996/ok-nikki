@@ -15,9 +15,9 @@ $python = "$workDir\.venv\Scripts\python.exe"
 $script = "$workDir\scripts\run_daily.py"
 $runLog = "$workDir\scheduled_run.log"
 
-# 包装: 清残留 python(单实例锁) -> 跑任务 -> 日志轮转(保留最近一份)
+# 包装: 清残留 python(单实例锁) -> 跑任务(前台模式, 保证挖掘可用) -> 日志轮转(保留最近一份)
 $action = New-ScheduledTaskAction -Execute "pwsh.exe" -Argument `
-    "-NoProfile -Command `"Stop-Process -Name python -Force -ErrorAction SilentlyContinue; Start-Sleep 2; Set-Location '$workDir'; `$env:PYTHONIOENCODING='utf-8'; & '$python' '$script' *> '$runLog'`""
+    "-NoProfile -Command `"Stop-Process -Name python -Force -ErrorAction SilentlyContinue; Start-Sleep 2; Set-Location '$workDir'; `$env:PYTHONIOENCODING='utf-8'; & '$python' '$script' --fg *> '$runLog'`""
 $trigger = New-ScheduledTaskTrigger -Daily -At 04:00
 $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
     -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 15) -MultipleInstances IgnoreNew

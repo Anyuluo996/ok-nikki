@@ -1,8 +1,12 @@
-"""headless 运行一键日常(手动驱动, 需以管理员运行: 游戏进程是 admin, 否则输入被 UIPI 丢弃)。
+"""一键日常入口: 美鸭梨挖掘 → 邮件/商城 → 奇想日历。
 
-用法(管理员 PowerShell):
-  .venv\\Scripts\\python.exe scripts\\run_daily.py
+用法:
+  python scripts/run_daily.py          # 后台模式: 不抢前台鼠标(WM_ACTIVATE 保活渲染)
+  python scripts/run_daily.py --fg     # 前台模式: 保持游戏前台, 定时任务/最稳推荐
+
+前置: 游戏已启动(建议窗口化), 本脚本需管理员运行(游戏是 admin, 否则输入被 UIPI 丢弃)。
 """
+import argparse
 import os
 import sys
 import threading
@@ -16,8 +20,13 @@ from src.config import config
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--fg', action='store_true', help='前台模式: 保持游戏窗口前台(定时任务推荐)')
+    args = parser.parse_args()
+
     if hasattr(sys.stdout, 'reconfigure'):
         sys.stdout.reconfigure(encoding='utf-8')
+
     c = dict(config)
     c.pop('gui', None)
     c['use_gui'] = False
@@ -32,42 +41,79 @@ def main():
     executor.start()
     og.app = ok
 
-    from src.tasks.DailyTask import DailyTask
-    from src.tasks.CalendarTask import CalendarTask
-    tasks = []
-    for cls in (DailyTask, CalendarTask):
-        t = cls(executor=executor, app=ok.headless_app)
-        t.after_init(executor=executor, scene=executor.scene)
-        t.post_init()
-        tasks.append(t)
-    task = tasks[0] # watchdog 引用
+    from src.tasks.MyBaseTask import MyBaseTask
+    base = MyBaseTask(executor=executor, app=ok.headless_app)
+    base.after_init(executor=executor, scene=executor.scene)
+    base.post_init()
 
     stop = threading.Event()
 
     def watchdog():
-        # 页面切换瞬间窗口 visible 会翻转, pynput 的截图等待可能死锁; 周期性拉回前台解卡
-        while not stop.is_set():
-            stop.wait(8)
-            if stop.is_set():
-                break
+        if args.fg:
+            # 前台模式: 周期性把游戏拉回前台(页面切换瞬间 visible 翻转可能丢焦点)
+            while not stop.is_set():
+                stop.wait(8)
+                try:
+                    if not dm.hwnd_window.is_foreground():
+                        base.force_foreground()
+                except Exception:
+                    pass
+        else:
+            # 后台模式: 最小化时 WGC 拿不到帧, 恢复窗口但不抢前台
+            import win32con
+            import win32gui
+            while not stop.is_set():
+                stop.wait(8)
+                try:
+                    hwnd = dm.hwnd_window.hwnd
+                    if win32gui.IsIconic(hwnd):
+                        win32gui.ShowWindow(hwnd, win32con.SW_SHOWNOACTIVATE)
+                except Exception:
+                    pass
+
+    threading.Thread(target=watchdog, daemon=True).start()
+
+    # 后台模式: WM_ACTIVATE 假激活, 让 UE5 失焦也继续渲染(否则 WGC 永远等不到帧)
+    if not args.fg:
+        try:
+            dm.interaction.activate()
+        except Exception:
+            pass
+
+    from src.tasks.MineTask import MineTask
+    from src.tasks.DailyTask import DailyTask
+    from src.tasks.CalendarTask import CalendarTask
+
+    def run_one(cls, retries=2, **config_overrides):
+        """带重试跑任务: 每次尝试失败后回大世界再战; 商城按用户要求暂不跑"""
+        for attempt in range(1, retries + 1):
             try:
-                hw = dm.hwnd_window
-                if not hw.is_foreground():
-                    task.force_foreground()
-            except Exception:
-                pass
+                task = cls(executor=executor, app=ok.headless_app)
+                task.after_init(executor=executor, scene=executor.scene)
+                task.post_init()
+                for k, v in config_overrides.items():
+                    task.config[k] = v
+                task.run()
+                if base.back_to_world():
+                    return True
+                print(f'{cls.__name__}: attempt {attempt} stuck off-world, retrying', flush=True)
+            except Exception as e:
+                print(f'RUN ERROR {cls.__name__} attempt {attempt}: {e}', flush=True)
+                try:
+                    base.back_to_world()
+                except Exception:
+                    pass
+        return False
 
-    def run_all():
-        for t in tasks:
-            if t.config.get('_enabled', True):
-                t.run()
+    run_one(MineTask) # 需真实交互的放最前
+    run_one(DailyTask, **{'Claim Shop Free Pack': False}) # 商城暂不跑(用户要求)
+    run_one(CalendarTask)
 
-    watcher = threading.Thread(target=watchdog, daemon=True)
-    watcher.start()
-    runner = threading.Thread(target=run_all, daemon=True)
-    runner.start()
-    runner.join(timeout=600) # 10 分钟总超时
     stop.set()
+    try:
+        dm.interaction.deactivate()
+    except Exception:
+        pass
     print('RUN DAILY DONE', flush=True)
     time.sleep(1)
     os._exit(0) # executor 线程非 daemon, 强退防僵尸
