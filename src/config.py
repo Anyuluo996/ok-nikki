@@ -1,5 +1,7 @@
 import os
 
+from src.device.NikkiInteraction import NikkiInteraction
+
 version = "dev"
 #不需要修改version, Github Action打包会自动修改
 
@@ -36,7 +38,7 @@ config = {
         'exe': ['X6Game-Win64-Shipping.exe'], #游戏主进程(启动器是 InfinityNikki Launcher.exe)
         'hwnd_class': 'UnrealWindow', #UE5 窗口类名, 配合 exe 名精确匹配
         'start_exe': False, #不自动拉起游戏, 请先手动启动游戏并进入大世界
-        'interaction': ['Pynput', 'PostMessage', 'Genshin', 'PyDirect', 'ForegroundPostMessage'], #pynput 需要游戏窗口前台; PostMessage 后台点击对 UE5 无效
+        'interaction': [NikkiInteraction, 'Pynput', 'PostMessage', 'Genshin', 'PyDirect'], #NikkiInteraction: 后台保活渲染+定时消息, 见 src/device/NikkiInteraction.py
         'capture_method': ['WGC', 'BitBlt_RenderFull', 'BitBlt'],  # 游戏需窗口化; 全屏下 WGC 首帧会挂
         'check_hdr': False, #当用户开启AutoHDR时候提示用户, 但不禁止使用
         'force_no_hdr': False, #True=当用户开启AutoHDR时候禁止使用
@@ -61,6 +63,7 @@ config = {
     'onetime_tasks': [  # 用户点击触发的任务
         [ "src.tasks.DailyTask", "DailyTask" ],
         [ "src.tasks.CalendarTask", "CalendarTask" ],
+        [ "src.tasks.MineTask", "MineTask" ],
         ["ok", "DiagnosisTask"],
     ],
 }
