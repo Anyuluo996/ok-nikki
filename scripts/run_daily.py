@@ -83,6 +83,7 @@ def main():
     from src.tasks.MineTask import MineTask
     from src.tasks.DailyTask import DailyTask
     from src.tasks.CalendarTask import CalendarTask
+    from src.tasks.RealmTask import RealmTask
 
     def run_one(cls, retries=2, **config_overrides):
         """带重试跑任务: 每次尝试失败后回大世界再战; 商城按用户要求暂不跑"""
@@ -107,7 +108,8 @@ def main():
 
     run_one(MineTask) # 需真实交互的放最前
     run_one(DailyTask, **{'Claim Shop Free Pack': False}) # 商城暂不跑(用户要求)
-    run_one(CalendarTask)
+    run_one(CalendarTask) # 含朝夕心愿任务确认
+    run_one(RealmTask) # 幻境挑战快速挑战耗体力
 
     stop.set()
     try:

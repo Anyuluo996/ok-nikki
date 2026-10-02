@@ -31,7 +31,7 @@ class CalendarTask(MyBaseTask):
         if not self.ensure_in_game():
             self.log_error('CalendarTask: not in game.', notify=True)
             return
-        if not self.open_calendar():
+        if not self.open_whim_calendar():
             self.log_error('CalendarTask: cannot open the Whim Calendar.', notify=True)
             self.debug_screenshot('calendar_not_open')
             self.back_to_world()
@@ -42,24 +42,6 @@ class CalendarTask(MyBaseTask):
             self.open_zhaoxi()
         self.back_to_world()
         self.log_info('CalendarTask finished.', notify=True)
-
-    def open_calendar(self, attempts=3):
-        """打开奇想日历: L 键(实测后台可用)优先, 顶栏入口 OCR 点击兜底"""
-        if self.page_sig() == 'calendar':
-            return True
-        for _ in range(attempts):
-            self.send_key('l', after_sleep=3)
-            if self.page_sig() == 'calendar':
-                return True
-            # L 没中: 顶栏「奇想日历」标签点击(热区为图标且世界 HUD 只吃真实点击)
-            entry = next((b for b in self.ocr(log=False)
-                          if '奇想日历' in b.name and b.y + b.height / 2 < 130), None)
-            if entry:
-                self.real_click(entry.x + entry.width / 2, entry.y - 45)
-                if self.page_sig() == 'calendar':
-                    return True
-            self.close_pause_menu()
-        return False
 
     def claim_rewards(self):
         self.park_cursor()
@@ -79,7 +61,7 @@ class CalendarTask(MyBaseTask):
             self.debug_screenshot('calendar_no_claim')
 
     def open_zhaoxi(self):
-        """从日历页点开朝夕心愿(每日任务列表), 领取可领奖励后返回"""
+        """从日历页点开朝夕心愿(每日任务列表), 确认任务状态并领取可领奖励"""
         row = next((b for b in self.ocr(log=False) if self.ZHAOXI.search(b.name)), None)
         if not row:
             self.log_info('CalendarTask: Zhaoxi entry not found on calendar page.')
@@ -88,6 +70,7 @@ class CalendarTask(MyBaseTask):
         if not self.wait_page('zhaoxi', 5):
             self.debug_screenshot('zhaoxi_not_open')
             return
+        self.confirm_zhaoxi_tasks()
         self.park_cursor()
         claimed = 0
         claim = self.wait_ocr(match=self.CLAIM, time_out=3, log=True)
@@ -106,3 +89,22 @@ class CalendarTask(MyBaseTask):
         self.log_info(f'CalendarTask: zhaoxi claimed {claimed}, tasks: {tasks[:3]}.')
         self.debug_screenshot('zhaoxi_page') # 校准用: 记录每日任务列表内容
         self.send_key('esc', after_sleep=2) # 回日历页
+
+    # 朝夕心愿任务卡坐标(1920x1080, 参考 Whimbox DAILY_TASK_CENTERS)
+    ZHAOXI_CARD_CENTERS = [(549, 595), (790, 337), (1112, 378), (1315, 607), (1532, 375)]
+
+    def confirm_zhaoxi_tasks(self):
+        """确认任务: 逐个点任务卡, 从底部详情条读任务文本与进度
+        (完成的卡带勾选图标, 未完成的文本里有 N/M 进度)。
+        文本存到 MyBaseTask.zhaoxi_task_texts, 供 RealmTask 决定打哪个幻境 boss"""
+        self.park_cursor()
+        found = []
+        for cx, cy in self.ZHAOXI_CARD_CENTERS:
+            self.click(cx, cy, down_time=0.15, after_sleep=1.2)
+            detail = ' '.join(b.name for b in self.ocr(log=False) if b.y > 860)
+            if detail:
+                found.append(detail[:80])
+        MyBaseTask.zhaoxi_task_texts = found
+        self.info_set(self.tr('Zhaoxi Quests'), f'{len(found)} {self.tr("Confirmed")}')
+        self.log_info(f'CalendarTask: zhaoxi card details: {found}', notify=True)
+        self.debug_screenshot('zhaoxi_cards')

@@ -83,3 +83,36 @@ msgstr "已收获并续挖"
 
 msgid "Harvested"
 msgstr "已收获"
+
+msgid "Realm Challenge"
+msgstr "幻境挑战"
+
+msgid "Spend energy via quick challenge in the realm (weekly boss)."
+msgstr "在幻境挑战中快速挑战消耗活跃能量。"
+
+msgid "Challenge Count"
+msgstr "挑战次数"
+
+msgid "How many quick challenges to run (each consumes energy)."
+msgstr "快速挑战的次数(每次消耗体力)。"
+
+msgid "Realm Level"
+msgstr "挑战关卡"
+
+msgid "Which weekly boss level to quick challenge."
+msgstr "快速挑战哪个周本关卡。"
+
+msgid "Realm"
+msgstr "幻境"
+
+msgid "Challenged"
+msgstr "已挑战"
+
+msgid "Weekly Realm"
+msgstr "每周幻境"
+
+msgid "Confirmed"
+msgstr "已确认"
+
+msgid "Weekly Done"
+msgstr "本周已领"

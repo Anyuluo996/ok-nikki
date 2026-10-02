@@ -63,6 +63,7 @@ config = {
     'onetime_tasks': [  # 用户点击触发的任务
         [ "src.tasks.DailyTask", "DailyTask" ],
         [ "src.tasks.CalendarTask", "CalendarTask" ],
+        [ "src.tasks.RealmTask", "RealmTask" ],
         [ "src.tasks.MineTask", "MineTask" ],
         ["ok", "DiagnosisTask"],
     ],

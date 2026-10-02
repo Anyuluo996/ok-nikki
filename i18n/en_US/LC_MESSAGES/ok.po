@@ -83,3 +83,36 @@ msgstr "Harvested & Restarted"
 
 msgid "Harvested"
 msgstr "Harvested"
+
+msgid "Realm Challenge"
+msgstr "Realm Challenge"
+
+msgid "Spend energy via quick challenge in the realm (weekly boss)."
+msgstr "Spend energy via quick challenge in the realm (weekly boss)."
+
+msgid "Challenge Count"
+msgstr "Challenge Count"
+
+msgid "How many quick challenges to run (each consumes energy)."
+msgstr "How many quick challenges to run (each consumes energy)."
+
+msgid "Realm Level"
+msgstr "Realm Level"
+
+msgid "Which weekly boss level to quick challenge."
+msgstr "Which weekly boss level to quick challenge."
+
+msgid "Realm"
+msgstr "Realm"
+
+msgid "Challenged"
+msgstr "Challenged"
+
+msgid "Weekly Realm"
+msgstr "Weekly Realm"
+
+msgid "Confirmed"
+msgstr "Confirmed"
+
+msgid "Weekly Done"
+msgstr "Weekly Done"

@@ -22,19 +22,23 @@ class MyBaseTask(BaseTask):
 
     # 页面特征 → 页面名。用于流程状态判定与「回大世界」的逐层退出
     # 注意: 大世界顶栏快捷排也有「奇想日历/商城」等文字, 页面特征不能用这些标题词;
-    # 判定顺序即优先级: 朝夕心愿页标题也是「每日灵感」, 必须用「每日4点刷新」先于日历页判定
+    # 判定顺序即优先级: 朝夕心愿页标题也是「每日灵感」, 必须用「每日4点刷新」先于日历页判定;
+    # 日历页右页有「幻境挑战」分区标题, 幻境 hub 特征只能用四个幻境名
     PAGE_SIGS = {
         'mine': re.compile('挖掘队列|选择物资|采集物资|一键收获|再次挖掘'),
         'mail': re.compile('系统邮件|好友邮件|删已读|删除邮件'),
         'zhaoxi': re.compile('每日4点刷新'),
         'shop': re.compile('星途珍存|清空购物车|历史低价'),
         'chat': re.compile('点击输入消息|跳转至好友'),
+        'realm': re.compile('心之突破幻境|素材激化幻境|祝福闪光幻境|魔物试炼幻境|快速挑战'),
         'calendar': re.compile('阅历挑战|每日灵感'),
     }
 
-    def page_sig(self):
+    def page_sig(self, boxes=None):
         """当前画面属于哪个页面: 子页特征优先, 其次美鸭梨菜单, 都不中=大世界"""
-        joined = ' '.join(b.name for b in self.ocr(log=False))
+        if boxes is None:
+            boxes = self.ocr(log=False)
+        joined = ' '.join(b.name for b in boxes)
         for name, p in self.PAGE_SIGS.items():
             if p.search(joined):
                 return name
@@ -52,9 +56,15 @@ class MyBaseTask(BaseTask):
         return False
 
     def back_to_world(self, max_esc=6):
-        """逐层 Esc 退出所有子页/菜单, 回到大世界(每层按完等 2s 再判定)"""
+        """逐层退出所有子页/菜单/弹窗, 回到大世界。
+        弹窗(如试炼奖励确认)不吃 Esc, 优先点「取消/关闭」按钮"""
         for _ in range(max_esc):
-            if self.page_sig() == 'other':
+            boxes = self.ocr(log=False)
+            cancel = next((b for b in boxes if re.fullmatch('取消|关闭', b.name.strip())), None)
+            if cancel:
+                self.click_box(cancel, down_time=0.15, after_sleep=1.5)
+                continue
+            if self.page_sig(boxes) == 'other':
                 return True
             self.send_key('esc', after_sleep=2)
         return self.page_sig() == 'other'
@@ -67,6 +77,23 @@ class MyBaseTask(BaseTask):
             win32api.SetCursorPos((rect[2] - 2, rect[3] - 2))
         except Exception:
             pass
+
+    def open_whim_calendar(self, attempts=3):
+        """打开奇想日历: L 键(后台实测可用)优先, 顶栏图标真实点击兜底"""
+        if self.page_sig() == 'calendar':
+            return True
+        for _ in range(attempts):
+            self.send_key('l', after_sleep=3)
+            if self.page_sig() == 'calendar':
+                return True
+            entry = next((b for b in self.ocr(log=False)
+                          if '奇想日历' in b.name and b.y + b.height / 2 < 130), None)
+            if entry:
+                self.real_click(entry.x + entry.width / 2, entry.y - 45)
+                if self.page_sig() == 'calendar':
+                    return True
+            self.close_pause_menu()
+        return False
 
     def real_click(self, x, y, down_time=0.15):
         """真实硬件点击。美鸭梨菜单的网格入口不吃 PostMessage(Enhanced Input 走 RawInput),
