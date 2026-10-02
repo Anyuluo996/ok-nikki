@@ -15,7 +15,7 @@ class DailyTask(MyBaseTask):
     FREE = re.compile('免费|一键领取|Free')
     # 实测坐标(1920x1080): 美鸭梨菜单底部工具排的信封 / 大世界右上角快捷排第一个图标(商城)
     MAIL_ICON_POS = (0.447, 0.930)
-    SHOP_ICON_POS = (0.633, 0.093)
+    SHOP_ICON_POS = (0.633, 0.062)
     # 邮件页底部「领取全部」按钮; (0.75,0.3) 为安全区, 移过去避免悬停触发 tooltip
     CLAIM_ALL_POS = (0.292, 0.947)
     SAFE_POS = (0.75, 0.3)
@@ -81,23 +81,25 @@ class DailyTask(MyBaseTask):
         self.close_pause_menu()
 
     def claim_shop_free(self):
-        # 商城入口在大世界右上角快捷排(带「商城」文字), 无需开菜单
+        # 商城入口在大世界右上角快捷排; 热区是图标(文字上方), 点文字无效
         entry = self.wait_ocr(match=self.SHOP_ENTRY, time_out=3, log=True)
         if entry:
-            self.click_box(entry[0], after_sleep=2, down_time=0.15)
+            box = entry[0]
+            self.click(box.x + box.width / 2, box.y - 40, down_time=0.15, after_sleep=3)
         else: # OCR 不中退回坐标(右上角第一个图标)
-            self.click(*self.SHOP_ICON_POS, down_time=0.15, after_sleep=2)
-        free = self.wait_ocr(match=self.FREE, time_out=5, log=True)
-        if not free:
+            self.click(*self.SHOP_ICON_POS, down_time=0.15, after_sleep=3)
+        # 页内先找「免费」(每日礼包), 再找「一键领取」(循星之旅等进度奖励)
+        target = self.wait_ocr(match=self.FREE, time_out=4, log=True)
+        if not target:
+            target = self.wait_ocr(match=self.CLAIM, time_out=3, log=True)
+        if not target:
             self.log_info('DailyTask: no free pack found in shop.')
             self.debug_screenshot('shop_no_free')
             self.send_key('esc', after_sleep=1)
             return
-        self.click_box(free[0], after_sleep=1.5)
-        claimed = self.wait_click_ocr(match=self.CLAIM, time_out=4, log=True)
-        if claimed:
-            self.confirm_dialog()
-            self.info_set(self.tr('Shop'), self.tr('Claimed'))
-            self.log_info('DailyTask: shop free pack claimed.', notify=True)
+        self.click_box(target[0], after_sleep=1.5, down_time=0.15)
+        self.confirm_dialog()
+        self.info_set(self.tr('Shop'), self.tr('Claimed'))
+        self.log_info('DailyTask: shop free pack claimed.', notify=True)
         self.send_key('esc', after_sleep=1)
         self.send_key('esc', after_sleep=1) # 商城可能有多层页面, 多退一层
