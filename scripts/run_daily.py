@@ -33,9 +33,14 @@ def main():
     og.app = ok
 
     from src.tasks.DailyTask import DailyTask
-    task = DailyTask(executor=executor, app=ok.headless_app)
-    task.after_init(executor=executor, scene=executor.scene)
-    task.post_init()
+    from src.tasks.CalendarTask import CalendarTask
+    tasks = []
+    for cls in (DailyTask, CalendarTask):
+        t = cls(executor=executor, app=ok.headless_app)
+        t.after_init(executor=executor, scene=executor.scene)
+        t.post_init()
+        tasks.append(t)
+    task = tasks[0] # watchdog 引用
 
     stop = threading.Event()
 
@@ -52,11 +57,16 @@ def main():
             except Exception:
                 pass
 
+    def run_all():
+        for t in tasks:
+            if t.config.get('_enabled', True):
+                t.run()
+
     watcher = threading.Thread(target=watchdog, daemon=True)
     watcher.start()
-    runner = threading.Thread(target=task.run, daemon=True)
+    runner = threading.Thread(target=run_all, daemon=True)
     runner.start()
-    runner.join(timeout=480) # 8 分钟总超时
+    runner.join(timeout=600) # 10 分钟总超时
     stop.set()
     print('RUN DAILY DONE', flush=True)
     time.sleep(1)
