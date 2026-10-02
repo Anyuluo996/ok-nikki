@@ -1,8 +1,9 @@
-"""一键日常入口: 美鸭梨挖掘 → 邮件/商城 → 奇想日历。
+"""一键日常入口: 邮件+挖掘(同菜单接力) → 奇想日历+朝夕心愿+幻境挑战(同页面接力)。
 
 用法:
-  python scripts/run_daily.py          # 后台模式: 不抢前台鼠标(WM_ACTIVATE 保活渲染)
-  python scripts/run_daily.py --fg     # 前台模式: 保持游戏前台, 定时任务/最稳推荐
+  python scripts/run_daily.py            # 后台模式: 不抢前台鼠标(WM_ACTIVATE 保活渲染)
+  python scripts/run_daily.py --fg       # 前台模式: 保持游戏前台, 定时任务/最稳推荐
+  python scripts/run_daily.py --dry-run  # 演练: 幻境不注入体力
 
 前置: 游戏已启动(建议窗口化), 本脚本需管理员运行(游戏是 admin, 否则输入被 UIPI 丢弃)。
 """
@@ -22,6 +23,7 @@ from src.config import config
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--fg', action='store_true', help='前台模式: 保持游戏窗口前台(定时任务推荐)')
+    parser.add_argument('--dry-run', action='store_true', help='演练: 幻境不注入体力')
     args = parser.parse_args()
 
     if hasattr(sys.stdout, 'reconfigure'):
@@ -85,15 +87,19 @@ def main():
     from src.tasks.CalendarTask import CalendarTask
     from src.tasks.RealmTask import RealmTask
 
+    def build(cls, **config_overrides):
+        task = cls(executor=executor, app=ok.headless_app)
+        task.after_init(executor=executor, scene=executor.scene)
+        task.post_init()
+        for k, v in config_overrides.items():
+            task.config[k] = v
+        return task
+
     def run_one(cls, retries=2, **config_overrides):
-        """带重试跑任务: 每次尝试失败后回大世界再战; 商城按用户要求暂不跑"""
+        """带重试跑任务: 每次尝试失败后回大世界再战"""
         for attempt in range(1, retries + 1):
             try:
-                task = cls(executor=executor, app=ok.headless_app)
-                task.after_init(executor=executor, scene=executor.scene)
-                task.post_init()
-                for k, v in config_overrides.items():
-                    task.config[k] = v
+                task = build(cls, **config_overrides)
                 task.run()
                 if base.back_to_world():
                     return True
@@ -106,10 +112,42 @@ def main():
                     pass
         return False
 
-    run_one(MineTask) # 需真实交互的放最前
-    run_one(DailyTask, **{'Claim Shop Free Pack': False}) # 商城暂不跑(用户要求)
-    run_one(CalendarTask) # 含朝夕心愿任务确认
-    run_one(RealmTask) # 幻境挑战快速挑战耗体力
+    # —— 菜单组: 邮件和挖掘入口同在美鸭梨菜单, 开一次菜单做完再回世界 ——
+    chain_done = False
+    try:
+        if base.open_pause_menu():
+            ok_mail = build(DailyTask).claim_mail_flow(leave_menu_open=True)
+            ok_mine = build(MineTask).mine_flow()
+            base.close_pause_menu()
+            chain_done = ok_mail or ok_mine
+    except Exception as e:
+        print(f'menu chain error: {e}', flush=True)
+        try:
+            base.back_to_world()
+        except Exception:
+            pass
+    if not chain_done:
+        run_one(DailyTask, **{'Claim Shop Free Pack': False}) # 商城暂不跑(用户要求)
+        run_one(MineTask)
+
+    # —— 日历组: 朝夕心愿和幻境挑战入口同在奇想日历页, 开一次日历做完再回世界 ——
+    cal_done = False
+    realm_overrides = {'Dry Run': True} if args.dry_run else {}
+    try:
+        cal = build(CalendarTask)
+        if cal.calendar_flow():
+            build(RealmTask, **realm_overrides).realm_flow()
+            cal_done = True
+            base.back_to_world()
+    except Exception as e:
+        print(f'calendar chain error: {e}', flush=True)
+        try:
+            base.back_to_world()
+        except Exception:
+            pass
+    if not cal_done:
+        run_one(CalendarTask)
+        run_one(RealmTask, **realm_overrides)
 
     stop.set()
     try:

@@ -28,20 +28,32 @@ class MineTask(MyBaseTask):
             'Allow Foreground Steal': 'Allow bringing the game to front for a real click when the background method fails.',
         })
 
-    def run(self):
+    def run(self, **kwargs):
         self.info_clear()
         if not self.ensure_in_game():
             self.log_error('MineTask: not in game.', notify=True)
             return
+        if not self.mine_flow():
+            self.back_to_world()
+            return
+        self.back_to_world()
+        self.log_info('MineTask finished.', notify=True)
+
+    def mine_flow(self):
+        """挖掘接力: 从菜单(或大世界自行开菜单)进入挖掘页, 收获后退回菜单不回世界。
+        邮件和挖掘入口同在美鸭梨菜单, 供 run_daily 与邮件接力省一次进出"""
         if not self.open_mine_page():
             self.log_error('MineTask: cannot open the dig page in background, '
                            'enable "Allow Foreground Steal" or open it manually.', notify=True)
             self.debug_screenshot('mine_page_not_open')
-            self.back_to_world()
-            return
+            self.close_pause_menu()
+            return False
         self.harvest()
-        self.back_to_world()
-        self.log_info('MineTask finished.', notify=True)
+        # 挖掘页 -> 菜单(接力: 邮件/挖掘同界面)
+        self.send_key('esc', after_sleep=2)
+        if not self.ocr(match=self.MENU_MARKERS):
+            self.close_pause_menu()
+        return True
 
     def open_mine_page(self, attempts=2):
         """打开挖掘页。网格入口不吃 PostMessage 点击:

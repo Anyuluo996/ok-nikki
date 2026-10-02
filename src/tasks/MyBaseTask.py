@@ -78,6 +78,19 @@ class MyBaseTask(BaseTask):
         except Exception:
             pass
 
+    def find_template(self, name, time_out=4):
+        """图像识别找模板按钮(比 OCR 精确), 轮询直到超时, 返回 Box 或 None"""
+        start = time.time()
+        while time.time() - start < time_out:
+            try:
+                boxes = self.find_feature(name)
+            except Exception:
+                boxes = []
+            if boxes:
+                return boxes[0]
+            self.sleep(1)
+        return None
+
     def open_whim_calendar(self, attempts=3):
         """打开奇想日历: L 键(后台实测可用)优先, 顶栏图标真实点击兜底"""
         if self.page_sig() == 'calendar':

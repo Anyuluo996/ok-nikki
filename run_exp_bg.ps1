@@ -5,4 +5,4 @@ Get-CimInstance Win32_Process -Filter "Name='python.exe'" |
   Where-Object { $_.CommandLine -match 'exp_calendar_pm|exp_bg|probe\.py|run_daily' } |
   ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 Start-Sleep -Milliseconds 800
-& .\.venv\Scripts\python.exe scripts\run_daily.py *> run_daily_final.log
+& .\.venv\Scripts\python.exe scripts\run_daily.py --dry-run *> run_daily_final.log

@@ -1,5 +1,200 @@
 {
-    "images": [],
-    "annotations": [],
-    "categories": []
+ "images": [
+  {
+   "id": 1,
+   "file_name": "imgs/InjectEnergyButton.png",
+   "width": 290,
+   "height": 59
+  },
+  {
+   "id": 2,
+   "file_name": "imgs/CancelButton.png",
+   "width": 290,
+   "height": 59
+  },
+  {
+   "id": 3,
+   "file_name": "imgs/QuickChallengeButton.png",
+   "width": 270,
+   "height": 70
+  },
+  {
+   "id": 4,
+   "file_name": "imgs/ChallengeButton.png",
+   "width": 270,
+   "height": 70
+  },
+  {
+   "id": 5,
+   "file_name": "imgs/WeeklyRemainLabel.png",
+   "width": 265,
+   "height": 62
+  },
+  {
+   "id": 6,
+   "file_name": "imgs/WeeklyPageTitle.png",
+   "width": 235,
+   "height": 63
+  },
+  {
+   "id": 7,
+   "file_name": "imgs/CalendarRealmCrystal.png",
+   "width": 210,
+   "height": 185
+  },
+  {
+   "id": 8,
+   "file_name": "imgs/CalendarZhaoxiCard.png",
+   "width": 640,
+   "height": 435
+  }
+ ],
+ "annotations": [
+  {
+   "id": 1,
+   "image_id": 1,
+   "category_id": 1,
+   "bbox": [
+    0,
+    0,
+    290,
+    59
+   ],
+   "area": 17110,
+   "iscrowd": 0
+  },
+  {
+   "id": 2,
+   "image_id": 2,
+   "category_id": 2,
+   "bbox": [
+    0,
+    0,
+    290,
+    59
+   ],
+   "area": 17110,
+   "iscrowd": 0
+  },
+  {
+   "id": 3,
+   "image_id": 3,
+   "category_id": 3,
+   "bbox": [
+    0,
+    0,
+    270,
+    70
+   ],
+   "area": 18900,
+   "iscrowd": 0
+  },
+  {
+   "id": 4,
+   "image_id": 4,
+   "category_id": 4,
+   "bbox": [
+    0,
+    0,
+    270,
+    70
+   ],
+   "area": 18900,
+   "iscrowd": 0
+  },
+  {
+   "id": 5,
+   "image_id": 5,
+   "category_id": 5,
+   "bbox": [
+    0,
+    0,
+    265,
+    62
+   ],
+   "area": 16430,
+   "iscrowd": 0
+  },
+  {
+   "id": 6,
+   "image_id": 6,
+   "category_id": 6,
+   "bbox": [
+    0,
+    0,
+    235,
+    63
+   ],
+   "area": 14805,
+   "iscrowd": 0
+  },
+  {
+   "id": 7,
+   "image_id": 7,
+   "category_id": 7,
+   "bbox": [
+    0,
+    0,
+    210,
+    185
+   ],
+   "area": 38850,
+   "iscrowd": 0
+  },
+  {
+   "id": 8,
+   "image_id": 8,
+   "category_id": 8,
+   "bbox": [
+    0,
+    0,
+    640,
+    435
+   ],
+   "area": 278400,
+   "iscrowd": 0
+  }
+ ],
+ "categories": [
+  {
+   "id": 1,
+   "name": "InjectEnergyButton",
+   "supercategory": ""
+  },
+  {
+   "id": 2,
+   "name": "CancelButton",
+   "supercategory": ""
+  },
+  {
+   "id": 3,
+   "name": "QuickChallengeButton",
+   "supercategory": ""
+  },
+  {
+   "id": 4,
+   "name": "ChallengeButton",
+   "supercategory": ""
+  },
+  {
+   "id": 5,
+   "name": "WeeklyRemainLabel",
+   "supercategory": ""
+  },
+  {
+   "id": 6,
+   "name": "WeeklyPageTitle",
+   "supercategory": ""
+  },
+  {
+   "id": 7,
+   "name": "CalendarRealmCrystal",
+   "supercategory": ""
+  },
+  {
+   "id": 8,
+   "name": "CalendarZhaoxiCard",
+   "supercategory": ""
+  }
+ ]
 }

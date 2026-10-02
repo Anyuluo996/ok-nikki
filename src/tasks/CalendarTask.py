@@ -26,22 +26,30 @@ class CalendarTask(MyBaseTask):
             'Open Zhaoxi Quests': 'Open the Zhaoxi daily quest page to check progress.',
         })
 
-    def run(self):
+    def run(self, **kwargs):
         self.info_clear()
         if not self.ensure_in_game():
             self.log_error('CalendarTask: not in game.', notify=True)
             return
+        if not self.calendar_flow():
+            self.back_to_world()
+            return
+        self.back_to_world()
+        self.log_info('CalendarTask finished.', notify=True)
+
+    def calendar_flow(self):
+        """日历接力: 开日历→领取→朝夕心愿确认, 结束后停在日历页
+        (幻境挑战入口同在日历页, 供 RealmTask 接力, 不用回大世界再按 L)"""
         if not self.open_whim_calendar():
             self.log_error('CalendarTask: cannot open the Whim Calendar.', notify=True)
             self.debug_screenshot('calendar_not_open')
             self.back_to_world()
-            return
+            return False
         if self.config.get('Claim Calendar Rewards'):
             self.claim_rewards()
         if self.config.get('Open Zhaoxi Quests'):
             self.open_zhaoxi()
-        self.back_to_world()
-        self.log_info('CalendarTask finished.', notify=True)
+        return self.page_sig() == 'calendar'
 
     def claim_rewards(self):
         self.park_cursor()

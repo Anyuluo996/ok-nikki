@@ -34,25 +34,28 @@ class DailyTask(MyBaseTask):
             'Claim Shop Free Pack': 'Open the shop and claim the free daily pack.',
         })
 
-    def run(self):
+    def run(self, chain_mine=False):
         self.info_clear()
         if not self.ensure_foreground():
             return
         if not self.ensure_in_game():
             return
         if self.config.get('Claim Mail'):
-            self.claim_mail()
+            self.claim_mail_flow(leave_menu_open=chain_mine)
         if self.config.get('Claim Shop Free Pack'):
             self.claim_shop_free() # 商城直接走大世界右上角入口, 需在关闭菜单的状态下执行
-        self.close_pause_menu()
+        if not chain_mine:
+            self.close_pause_menu()
         self.log_info('DailyTask finished.', notify=True)
 
-    def claim_mail(self):
+    def claim_mail_flow(self, leave_menu_open=False):
+        """开菜单进邮件领取。leave_menu_open=True 时领取后只退一次 Esc 停在菜单
+        (挖掘入口同在菜单里, 供 MineTask 接力, 不用回大世界再开)"""
         # 邮件入口是美鸭梨菜单底部工具排的信封图标(无文字, 用坐标点击)
         if not self.open_pause_menu():
             self.log_error('DailyTask: cannot open Meiyali menu.', notify=True)
             self.debug_screenshot('no_pause_menu')
-            return
+            return False
         in_mail = False
         for _ in range(2): # 菜单动画/点击偶发丢失, 重试一次
             self.click(*self.MAIL_ICON_POS, down_time=0.15, after_sleep=2.5) # 游戏会丢超短点击, 需长按
@@ -65,7 +68,7 @@ class DailyTask(MyBaseTask):
             self.log_info('DailyTask: failed to open mailbox.')
             self.debug_screenshot('mail_page_not_open')
             self.close_pause_menu()
-            return
+            return False
         self.park_cursor() # 移开真实光标到角落, 防止悬停弹出物品 tooltip 挡住按钮
         self.sleep(0.5)
         claim = self.wait_ocr(match=self.CLAIM, time_out=3, log=True)
@@ -77,8 +80,10 @@ class DailyTask(MyBaseTask):
         self.confirm_dialog()
         self.info_set(self.tr('Mail'), self.tr('Claimed'))
         self.log_info('DailyTask: mail claimed.', notify=True)
-        self.send_key('esc', after_sleep=1.5)
-        self.close_pause_menu()
+        self.send_key('esc', after_sleep=1.5) # 邮件页 -> 菜单
+        if not leave_menu_open:
+            self.close_pause_menu()
+        return True
 
     def claim_shop_free(self):
         # 商城入口在大世界右上角快捷排: 热区是图标(文字上方); 优先热键 H, 图标真实点击兜底
