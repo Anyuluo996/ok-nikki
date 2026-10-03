@@ -23,6 +23,7 @@ class MyBaseTask(BaseTask):
     # 页面特征 → 页面名。用于流程状态判定与「回大世界」的逐层退出
     # 注意: 大世界顶栏快捷排也有「奇想日历/商城」等文字, 页面特征不能用这些标题词;
     # 判定顺序即优先级: 朝夕心愿页标题也是「每日灵感」, 必须用「每日4点刷新」先于日历页判定;
+    # passport 必须在 realm 之前: 旅行任务页的任务文本含「祝福闪光幻境」等幻境名, 会被误判成幻境页;
     # 日历页右页有「幻境挑战」分区标题, 幻境 hub 特征只能用四个幻境名
     PAGE_SIGS = {
         'mine': re.compile('挖掘队列|选择物资|采集物资|一键收获|再次挖掘'),
@@ -30,8 +31,8 @@ class MyBaseTask(BaseTask):
         'zhaoxi': re.compile('每日4点刷新'),
         'shop': re.compile('星途珍存|清空购物车|历史低价'),
         'chat': re.compile('点击输入消息|跳转至好友'),
-        'realm': re.compile('心之突破幻境|素材激化幻境|祝福闪光幻境|魔物试炼幻境|快速挑战'),
         'passport': re.compile('悠远颂歌|旅行任务'),
+        'realm': re.compile('心之突破幻境|素材激化幻境|祝福闪光幻境|魔物试炼幻境|快速挑战'),
         'calendar': re.compile('阅历挑战|每日灵感'),
     }
 
@@ -163,6 +164,11 @@ class MyBaseTask(BaseTask):
                 self.log_info('popup confirmed.')
                 self.sleep(2)
                 continue
+            # 恭喜获得奖励页没有按钮, 靠 F 关闭(上次运行残留会导致这里卡死)
+            if self.close_reward_page(2):
+                self.log_info('reward page closed by F.')
+                self.sleep(1)
+                continue
             # 无登录入口且无弹窗: 用 Esc 菜单能否打开判定是否已在大世界
             if self.open_pause_menu(attempts=2):
                 self.close_pause_menu()
@@ -220,6 +226,15 @@ class MyBaseTask(BaseTask):
     def confirm_dialog(self, time_out=3):
         """领取奖励后可能弹出确认框, 有则点掉, 无则静默超时"""
         return self.wait_click_ocr(match=self.CONFIRM, time_out=time_out, log=True)
+
+    def close_reward_page(self, time_out=4):
+        """领取奖励后的「恭喜获得」页: 无按钮, 底部提示 F/空白区域继续, 按 F 关闭(可能多页)"""
+        closed = False
+        while self.wait_ocr(match=re.compile('恭喜获得'), time_out=time_out if not closed else 2,
+                            log=True):
+            self.send_key('f', after_sleep=1.5)
+            closed = True
+        return closed
 
     def debug_screenshot(self, name):
         """流程卡住时保存截图, 便于用 debug 模式校准 OCR 关键字"""

@@ -59,6 +59,7 @@ class CalendarTask(MyBaseTask):
         while claim and claimed < 5: # 逐个领, 最多 5 轮防死循环
             self.click_box(claim[0], down_time=0.15, after_sleep=1.5)
             self.confirm_dialog()
+            self.close_reward_page() # 领取可能弹恭喜获得页, 按 F 关闭
             claimed += 1
             self.park_cursor()
             self.sleep(0.5)
@@ -85,6 +86,7 @@ class CalendarTask(MyBaseTask):
         while claim and claimed < 5:
             self.click_box(claim[0], down_time=0.15, after_sleep=1.5)
             self.confirm_dialog()
+            self.close_reward_page()
             claimed += 1
             self.park_cursor()
             claim = self.wait_ocr(match=self.CLAIM, time_out=2, log=True)

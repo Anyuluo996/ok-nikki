@@ -87,9 +87,6 @@ msgstr "已收获"
 msgid "Realm Challenge"
 msgstr "幻境挑战"
 
-msgid "Spend energy via quick challenge in the realm (weekly boss)."
-msgstr "在幻境挑战中快速挑战消耗活跃能量。"
-
 msgid "Challenge Count"
 msgstr "挑战次数"
 
@@ -120,8 +117,44 @@ msgstr "本周已领"
 msgid "Passport"
 msgstr "通行证"
 
-msgid "Open the Whim Journey (battle pass) and claim free rewards."
-msgstr "打开奇迹之旅(通行证), 领取免费轨道奖励。"
+msgid "Open the Whim Journey (battle pass), claim finished travel tasks and free-track rewards."
+msgstr "打开奇迹之旅(通行证), 领取旅行任务已完成任务和免费轨道奖励。"
 
 msgid "Claim Passport Rewards"
 msgstr "领取通行证奖励"
+
+msgid "Spend energy via quick challenge in the realm chosen by zhaoxi tasks; escalate materials in the Material Realm."
+msgstr "按朝夕心愿任务选择幻境快速挑战消耗体力; 素材激化幻境进副本兑换。"
+
+msgid "Claim Passport Tasks"
+msgstr "领取旅行任务奖励"
+
+msgid "Claim rewards of finished tasks on the Travel Tasks tab."
+msgstr "在旅行任务页领取已完成任务的奖励。"
+
+msgid "Material Realm"
+msgstr "素材激化"
+
+msgid "Exchanged"
+msgstr "已兑换"
+
+msgid "Material Exchange Count"
+msgstr "素材激化次数"
+
+msgid "Material realm exchanges when no realm task found (0 = off)."
+msgstr "朝夕心愿未点名幻境时, 额外做素材激化兑换的次数(0 = 关闭)。"
+
+msgid "Escalate Product"
+msgstr "激化产物"
+
+msgid "噗灵"
+msgstr "噗灵"
+
+msgid "Product to escalate into: 噗灵 / 丝线 / 闪亮泡泡."
+msgstr "激化得到的产物: 噗灵 / 丝线 / 闪亮泡泡。"
+
+msgid "Escalate Max"
+msgstr "材料一键最大"
+
+msgid "Pick the most stocked material and max its quantity via the arrow."
+msgstr "优先选库存最多的材料, 弹窗内按箭头放入最大数量(自动限到体力可负担)。"

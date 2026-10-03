@@ -87,8 +87,8 @@ msgstr "Harvested"
 msgid "Realm Challenge"
 msgstr "Realm Challenge"
 
-msgid "Spend energy via quick challenge in the realm (weekly boss)."
-msgstr "Spend energy via quick challenge in the realm (weekly boss)."
+msgid "Spend energy via quick challenge in the realm chosen by zhaoxi tasks; escalate materials in the Material Realm."
+msgstr "Spend energy via quick challenge in the realm chosen by zhaoxi tasks; escalate materials in the Material Realm."
 
 msgid "Challenge Count"
 msgstr "Challenge Count"
@@ -120,8 +120,41 @@ msgstr "Weekly Done"
 msgid "Passport"
 msgstr "Passport"
 
-msgid "Open the Whim Journey (battle pass) and claim free rewards."
-msgstr "Open the Whim Journey (battle pass) and claim free rewards."
+msgid "Open the Whim Journey (battle pass), claim finished travel tasks and free-track rewards."
+msgstr "Open the Whim Journey (battle pass), claim finished travel tasks and free-track rewards."
 
 msgid "Claim Passport Rewards"
 msgstr "Claim Passport Rewards"
+
+msgid "Claim Passport Tasks"
+msgstr "Claim Passport Tasks"
+
+msgid "Claim rewards of finished tasks on the Travel Tasks tab."
+msgstr "Claim rewards of finished tasks on the Travel Tasks tab."
+
+msgid "Material Realm"
+msgstr "Material Realm"
+
+msgid "Exchanged"
+msgstr "Exchanged"
+
+msgid "Material Exchange Count"
+msgstr "Material Exchange Count"
+
+msgid "Material realm exchanges when no realm task found (0 = off)."
+msgstr "Material realm exchanges when no realm task found (0 = off)."
+
+msgid "Escalate Product"
+msgstr "Escalate Product"
+
+msgid "噗灵"
+msgstr "噗灵"
+
+msgid "Product to escalate into: 噗灵 / 丝线 / 闪亮泡泡."
+msgstr "Product to escalate into: 噗灵 / 丝线 / 闪亮泡泡."
+
+msgid "Escalate Max"
+msgstr "Escalate Max"
+
+msgid "Pick the most stocked material and max its quantity via the arrow."
+msgstr "Pick the most stocked material and max its quantity via the arrow."
