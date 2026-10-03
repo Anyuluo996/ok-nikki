@@ -126,18 +126,18 @@ class RealmTask(MyBaseTask):
         crystal = self.find_template('CalendarRealmCrystal', time_out=2)
         for _ in range(attempts):
             if crystal:
-                self.click_box(crystal, down_time=0.15, after_sleep=3)
+                self.click_box(crystal, down_time=0.15, after_sleep=1)
             else:
                 boxes = self.ocr(log=False)
                 daily = next((b for b in boxes if '每日幻境' in b.name), None)
                 weekly = next((b for b in boxes if self.WEEKLY_COUNT.search(b.name)), None)
                 if daily:
-                    self.click_box(daily, down_time=0.15, after_sleep=3)
+                    self.click_box(daily, down_time=0.15, after_sleep=1)
                 elif weekly:
-                    self.click_box(weekly, down_time=0.15, after_sleep=3)
+                    self.click_box(weekly, down_time=0.15, after_sleep=1)
                 else:
-                    self.click(0.687, 0.228, down_time=0.15, after_sleep=3)
-            if self.page_sig() == 'realm':
+                    self.click(0.687, 0.228, down_time=0.15, after_sleep=1)
+            if self.wait_page('realm', 6):
                 return True
             self.debug_screenshot('realm_hub_miss')
             self.close_pause_menu()
@@ -227,7 +227,10 @@ class RealmTask(MyBaseTask):
         else:
             self.log_info('RealmTask: cannot enter the Material Realm.')
             self.debug_screenshot('material_no_enter')
-        self.leave_material_dungeon()
+        if not self.leave_material_dungeon():
+            # 门点不动(卡副本), 走菜单退出到登录重进
+            self.log_info('RealmTask: leave dungeon failed, relogin recovery.', notify=True)
+            self.recover_via_relogin()
         return done
 
     def enter_material_realm(self, attempts=2):
@@ -325,14 +328,19 @@ class RealmTask(MyBaseTask):
                    down_time=0.15, after_sleep=2.5)
         return bool(self.wait_ocr(match=re.compile('预计获得|品质'), time_out=4, log=True))
 
+    def _scan_material_tiles(self):
+        """当前可见的材料格(数量文字在格子右下)"""
+        return [b for b in self.ocr(log=False)
+                if self.NUM_TILE.fullmatch(b.name.strip())
+                and 120 < b.y < 950 and b.x < 1100]
+
     def add_material(self, attempts=3):
         """点数量最多的材料格 → 「选择材料」弹窗 → 按箭头一键最大 → 确认。
-        箭头(→|)是图形按钮, 固定在「确认」按钮上方偏右; 确认失败(体力不足以被限到 0)时退回最小数量"""
+        网格有多页: 下滑一页对比, 更优就点第二页的, 否则滑回第一页点原来的。
+        箭头(→|)是图形按钮, 固定在「确认」按钮上方偏右; 游戏会把最大数量限到体力可负担"""
         confirm = None
         for _ in range(attempts):
-            tiles = [b for b in self.ocr(log=False)
-                     if self.NUM_TILE.fullmatch(b.name.strip())
-                     and 120 < b.y < 950 and b.x < 1100]
+            tiles = self._scan_material_tiles()
             if not tiles:
                 self.debug_screenshot('material_no_tile')
                 return False
@@ -340,11 +348,25 @@ class RealmTask(MyBaseTask):
             def qty(b):
                 m = re.match(r'(\d+(?:\.\d+)?)', b.name.strip())
                 return float(m.group(1)) if m else 0.0
-            tile = max(tiles, key=qty)
-            self.log_info(f'RealmTask: material tile "{tile.name}" '
-                          f'@ ({tile.x},{tile.y}).')
+            best = max(tiles, key=qty)
+            best1 = best
+            # 下滑一页找数量更多的材料(滚轮不吃 posted, 用真实滚轮, 会短暂拉前台)
+            self.real_scroll(700, 500, 1)
+            self.sleep(1)
+            tiles2 = self._scan_material_tiles()
+            page2 = '无'
+            if tiles2:
+                best2 = max(tiles2, key=qty)
+                page2 = f'{best2.name}({qty(best2):g})'
+                if qty(best2) > qty(best):
+                    best = best2
+                else:
+                    self.real_scroll(700, 500, -1)
+                    self.sleep(1)
+            self.log_info(f'RealmTask: material page1 best "{best1.name}"({qty(best1):g}), '
+                          f'page2 best {page2}, pick "{best.name}" @ ({best.x},{best.y}).')
             # 数量文字在格子右下角, 格子可点区在文字上方
-            self.click(tile.x + tile.width / 2, tile.y - 25,
+            self.click(best.x + best.width / 2, best.y - 25,
                        down_time=0.15, after_sleep=2)
             confirm = self.wait_ocr(match=re.compile('选择材料|需消耗|确认'), time_out=4, log=True)
             if confirm:

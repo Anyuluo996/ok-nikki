@@ -59,7 +59,8 @@ class MyBaseTask(BaseTask):
 
     def back_to_world(self, max_esc=6):
         """逐层退出所有子页/菜单/弹窗, 回到大世界。
-        弹窗(如试炼奖励确认)不吃 Esc, 优先点「取消/关闭」按钮"""
+        弹窗(如试炼奖励确认)不吃 Esc, 优先点「取消/关闭」按钮;
+        全部退出手段失败时兜底走菜单「退出游戏→返回登录」重进"""
         for _ in range(max_esc):
             boxes = self.ocr(log=False)
             cancel = next((b for b in boxes if re.fullmatch('取消|关闭', b.name.strip())), None)
@@ -69,7 +70,31 @@ class MyBaseTask(BaseTask):
             if self.page_sig(boxes) == 'other':
                 return True
             self.send_key('esc', after_sleep=2)
-        return self.page_sig() == 'other'
+        if self.page_sig() == 'other':
+            return True
+        self.log_info('back_to_world failed, trying relogin recovery.', notify=True)
+        return self.recover_via_relogin()
+
+    def recover_via_relogin(self):
+        """卡死兜底: 美鸭梨菜单「退出游戏」入口 → 弹窗点「返回登录」→ 重新进游戏。
+        只在确认弹窗里看到「返回登录」才点击, 避免误真退出游戏"""
+        if not self.open_pause_menu():
+            self.debug_screenshot('relogin_no_menu')
+            return False
+        entry = next((b for b in self.ocr(log=False) if '退出游戏' in b.name), None)
+        if not entry:
+            self.debug_screenshot('relogin_no_entry')
+            self.close_pause_menu()
+            return False
+        self.click_box(entry, down_time=0.15, after_sleep=2)
+        dialog = self.wait_ocr(match=re.compile('返回登录'), time_out=4, log=True)
+        if not dialog:
+            self.debug_screenshot('relogin_no_dialog')
+            return False
+        back = next((b for b in dialog if '返回登录' in b.name), None)
+        self.click_box(back, down_time=0.15, after_sleep=3)
+        self.log_info('relogin recovery: back to login, re-entering game.')
+        return self.ensure_in_game()
 
     def park_cursor(self):
         """真实光标停到窗口右下角边缘: 游戏会跟随光标弹 tooltip/把光标画在画面中央, 挡 OCR"""
@@ -125,6 +150,23 @@ class MyBaseTask(BaseTask):
         time.sleep(down_time)
         win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
         self.sleep(0.3)
+        self.park_cursor()
+        return True
+
+    def real_scroll(self, x, y, count):
+        """真实滚轮。素材网格等列表不吃 posted 滚轮, 需真实光标+wheel 事件(要求前台)。
+        count>0 向下翻(列表前进), count<0 向上翻; 一格 = 一个 WHEEL_DELTA"""
+        hwnd_win = og.device_manager.hwnd_window
+        if not hwnd_win.is_foreground():
+            self.force_foreground()
+            self.sleep(0.8)
+        abs_x, abs_y = self.executor.method.get_abs_cords(int(x), int(y))
+        win32api.SetCursorPos((int(abs_x), int(abs_y)))
+        self.sleep(0.15)
+        delta = -120 if count > 0 else 120
+        for _ in range(abs(int(count))):
+            win32api.mouse_event(win32con.MOUSEEVENTF_WHEEL, 0, 0, delta, 0)
+            self.sleep(0.2)
         self.park_cursor()
         return True
 

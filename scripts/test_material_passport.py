@@ -1,7 +1,10 @@
-"""端到端验证: RealmTask 素材激化幻境兑换 + PassportTask 旅行任务/轨道领取。
-- 先清理当前副本内残留状态(leave_material_dungeon)
-- 模拟朝夕心愿任务文本路由到素材激化幻境, 真实兑换 1 次(1 单位材料 ≈ 10 体力)
-- PassportTask: 旅行任务领取(当前无可领则为 0)+ 秘宝页一键领取
+"""端到端/单项验证驱动。用法: test_material_passport.py [phase]
+  material  就地测试素材激化兑换(F→选产物→滚动翻页选材→Dry Run 取消),
+            要求游戏已停在激化台前(交互提示可见), 不做导航不退出副本
+  calendar  日历+朝夕心愿(礼物+任务领取)
+  realm     完整素材激化链(导航进副本, Dry Run)
+  passport  通行证(旅行任务一键领取+秘宝轨道)
+  all       上面全部(默认), 从清理残留开始
 """
 import json
 import os
@@ -38,6 +41,8 @@ def disarm():
 def main():
     if hasattr(sys.stdout, 'reconfigure'):
         sys.stdout.reconfigure(encoding='utf-8')
+    phase = sys.argv[1] if len(sys.argv) > 1 else 'all'
+    print(f'PHASE: {phase}', flush=True)
     threading.Thread(target=watchdog, daemon=True).start()
 
     c = dict(config)
@@ -57,6 +62,7 @@ def main():
     from src.tasks.MyBaseTask import MyBaseTask
     from src.tasks.RealmTask import RealmTask
     from src.tasks.PassportTask import PassportTask
+    from src.tasks.CalendarTask import CalendarTask
 
     realm = RealmTask(executor=executor, app=ok.headless_app)
     realm.after_init(executor=executor, scene=executor.scene)
@@ -64,7 +70,7 @@ def main():
     realm.config['Material Exchange Count'] = 1
     realm.config['Escalate Product'] = '噗灵'
     realm.config['Escalate Max'] = True
-    realm.config['Dry Run'] = False
+    realm.config['Dry Run'] = True  # 体力不足/单项验证, 只走到选择材料弹窗
 
     passport = PassportTask(executor=executor, app=ok.headless_app)
     passport.after_init(executor=executor, scene=executor.scene)
@@ -72,34 +78,69 @@ def main():
     passport.config['Claim Passport Tasks'] = True
     passport.config['Claim Passport Rewards'] = True
 
-    # 1) 清理: 上次可能残留在副本/奖励页
-    arm(240, 'cleanup')
-    realm.ensure_foreground()
-    realm.ensure_in_game()
-    print('STEP cleanup: leave_material_dungeon ->',
-          realm.leave_material_dungeon(), flush=True)
-    realm.back_to_world()
-    disarm()
+    calendar = CalendarTask(executor=executor, app=ok.headless_app)
+    calendar.after_init(executor=executor, scene=executor.scene)
+    calendar.post_init()
+    calendar.config['Claim Calendar Rewards'] = True
+    calendar.config['Open Zhaoxi Quests'] = True
 
-    # 2) RealmTask: 模拟朝夕心愿任务路由到素材激化
-    MyBaseTask.zhaoxi_task_texts = ['很多新人搭配师不知道, 流转之柱开放了不少幻境, '
-                                    '在素材激化幻境兑换1次素材 0/1 奖励 200']
-    arm(420, 'realm_task')
-    try:
-        realm.run()
-    finally:
-        disarm()
-    print('RESULT realm infos:', json.dumps(realm.info, ensure_ascii=False, default=str),
-          flush=True)
+    def run_material_inplace():
+        """就地兑换验证: 假定已在激化台前, 只走 F→选产物→选材(滚动翻页)→Dry Run 取消"""
+        arm(180, 'material_inplace')
+        try:
+            boxes = realm.ocr(log=False)
+            if not next((b for b in boxes if '激化台' in b.name), None):
+                print('RESULT material_inplace: NOT at exchange table (no prompt), '
+                      'use phase=realm for full nav', flush=True)
+                return
+            ok_ = realm.material_exchange_once(first=True)
+            print(f'RESULT material_inplace done={ok_}', flush=True)
+            print('RESULT realm infos:', json.dumps(realm.info, ensure_ascii=False, default=str),
+                  flush=True)
+        finally:
+            disarm()
 
-    # 3) PassportTask
-    arm(240, 'passport_task')
-    try:
-        passport.run()
-    finally:
-        disarm()
-    print('RESULT passport infos:', json.dumps(passport.info, ensure_ascii=False, default=str),
-          flush=True)
+    if phase in ('all', 'material') and phase == 'material':
+        run_material_inplace()
+    else:
+        if phase == 'all':
+            # 清理残留(副本/奖励页)
+            arm(240, 'cleanup')
+            realm.ensure_foreground()
+            realm.ensure_in_game()
+            print('STEP cleanup: leave_material_dungeon ->',
+                  realm.leave_material_dungeon(), flush=True)
+            realm.back_to_world()
+            disarm()
+
+        if phase in ('all', 'calendar'):
+            arm(300, 'calendar_task')
+            try:
+                calendar.run()
+            finally:
+                disarm()
+            print('RESULT calendar infos:', json.dumps(calendar.info, ensure_ascii=False, default=str),
+                  flush=True)
+
+        if phase in ('all', 'realm'):
+            MyBaseTask.zhaoxi_task_texts = ['很多新人搭配师不知道, 流转之柱开放了不少幻境, '
+                                            '在素材激化幻境兑换1次素材 0/1 奖励 200']
+            arm(420, 'realm_task')
+            try:
+                realm.run()
+            finally:
+                disarm()
+            print('RESULT realm infos:', json.dumps(realm.info, ensure_ascii=False, default=str),
+                  flush=True)
+
+        if phase in ('all', 'passport'):
+            arm(240, 'passport_task')
+            try:
+                passport.run()
+            finally:
+                disarm()
+            print('RESULT passport infos:', json.dumps(passport.info, ensure_ascii=False, default=str),
+                  flush=True)
 
     print('SESSION DONE', flush=True)
     time.sleep(1)

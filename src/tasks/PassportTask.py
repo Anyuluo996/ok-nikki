@@ -11,10 +11,13 @@ class PassportTask(MyBaseTask):
     页面特征「悠远颂歌」为大世界顶栏所无, 判定安全;
     旅行任务页任务文本含幻境名, MyBaseTask.PAGE_SIGS 已把 passport 判定放在 realm 之前"""
 
-    CLAIM = re.compile('一键领取|全部领取|领取|收下')
-    TASK_CLAIM = re.compile('领取|收下')
+    CLAIM = re.compile(r'一\s*键\s*领\s*取|全\s*部\s*领\s*取|领\s*取|收\s*下')
+    TASK_CLAIM = re.compile(r'领\s*取|收\s*下')
+    CLAIM_ALL = re.compile(r'一\s*键\s*领\s*取|全\s*部\s*领\s*取|领\s*取\s*全\s*部')
     TASK_TAB = re.compile('旅行任务')
     TREASURE_TAB = re.compile('旅行秘宝')
+    # 任务页/秘宝页底部的「一键领取」固定位置(1920x1080), OCR 不中艺术字时兜底
+    CLAIM_ALL_POS = (1225, 990)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -64,7 +67,9 @@ class PassportTask(MyBaseTask):
         return False
 
     def claim_travel_tasks(self, rounds=2):
-        """切到旅行任务页, 领取已完成任务的奖励(每轮领完可见项后向下滚一屏再领)"""
+        """切到旅行任务页领取已完成任务。
+        完成态任务是礼盒图标(无文字), 页面底部「一键领取」是主要途径;
+        逐行「领取/收下」兜底; 每轮领完向下滚一屏(本周任务/本期任务两段)"""
         tab = next((b for b in self.ocr(log=False)
                     if self.TASK_TAB.search(b.name) and b.y < 120), None)
         if not tab:
@@ -75,20 +80,46 @@ class PassportTask(MyBaseTask):
         self.park_cursor()
         claimed = 0
         for rnd in range(rounds):
+            acted = False
+            last = None
+            tried_fixed = False
             while claimed < 30:
-                claim = next((b for b in self.ocr(log=False)
-                              if self.TASK_CLAIM.fullmatch(b.name.strip())), None)
-                if not claim:
+                boxes = self.ocr(log=False)
+                # 任务页底部的一键领取优先(完成态任务没有文字按钮)
+                target = next((b for b in boxes
+                               if self.CLAIM_ALL.fullmatch(b.name.strip())
+                               and b.y > 800), None)
+                if not target:
+                    target = next((b for b in boxes
+                                   if self.TASK_CLAIM.fullmatch(b.name.strip())), None)
+                if not target:
+                    if not tried_fixed:
+                        # OCR 不中艺术字时按固定位置点「一键领取」(任务页与秘宝页同位)
+                        tried_fixed = True
+                        self.click(*self.CLAIM_ALL_POS, down_time=0.15, after_sleep=1.5)
+                        self.confirm_dialog()
+                        if self.close_reward_page():
+                            claimed += 1
+                            acted = True
+                        self.park_cursor()
+                        self.sleep(0.5)
+                        continue
                     break
-                self.click_box(claim, down_time=0.15, after_sleep=1.5)
+                if last and abs(target.x - last[0]) < 5 and abs(target.y - last[1]) < 5:
+                    break # 同一个按钮还在, 没有更多可领
+                last = (target.x, target.y)
+                self.click_box(target, down_time=0.15, after_sleep=1.5)
                 self.confirm_dialog()
+                self.close_reward_page()
                 claimed += 1
+                acted = True
                 self.park_cursor()
                 self.sleep(0.5)
             self.debug_screenshot(f'passport_tasks_r{rnd}')
-            if rnd + 1 < rounds:
-                self.scroll_relative(0.5, 0.5, 1) # 向下滚一屏, 任务列表较长
-                self.sleep(1)
+            if not acted or rnd + 1 >= rounds:
+                break
+            self.scroll_relative(0.5, 0.5, 1) # 向下滚一屏看本期任务
+            self.sleep(1)
         self.log_info(f'PassportTask: claimed {claimed} travel task rewards.')
         if claimed == 0:
             self.debug_screenshot('passport_tasks_no_claim')

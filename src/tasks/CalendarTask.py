@@ -70,7 +70,8 @@ class CalendarTask(MyBaseTask):
             self.debug_screenshot('calendar_no_claim')
 
     def open_zhaoxi(self):
-        """从日历页点开朝夕心愿(每日任务列表), 确认任务状态并领取可领奖励"""
+        """从日历页点开朝夕心愿: 先领里程碑礼物和任务奖励(领完即快速跳过),
+        最后确认任务卡文本(供 RealmTask 路由)"""
         row = next((b for b in self.ocr(log=False) if self.ZHAOXI.search(b.name)), None)
         if not row:
             self.log_info('CalendarTask: Zhaoxi entry not found on calendar page.')
@@ -79,10 +80,10 @@ class CalendarTask(MyBaseTask):
         if not self.wait_page('zhaoxi', 5):
             self.debug_screenshot('zhaoxi_not_open')
             return
-        self.confirm_zhaoxi_tasks()
+        self.claim_zhaoxi_gifts()
         self.park_cursor()
         claimed = 0
-        claim = self.wait_ocr(match=self.CLAIM, time_out=3, log=True)
+        claim = self.wait_ocr(match=self.CLAIM, time_out=2, log=True)
         while claim and claimed < 5:
             self.click_box(claim[0], down_time=0.15, after_sleep=1.5)
             self.confirm_dialog()
@@ -90,7 +91,8 @@ class CalendarTask(MyBaseTask):
             claimed += 1
             self.park_cursor()
             claim = self.wait_ocr(match=self.CLAIM, time_out=2, log=True)
-        # 读取今日任务进度(如「一起拍0/1张照片」); 任务本身需大世界玩法, 不自动执行
+        # 确认任务卡文本(RealmTask 路由依赖), 读完读今日任务进度(如「一起拍0/1张照片」)
+        self.confirm_zhaoxi_tasks()
         tasks = [b.name for b in self.ocr(log=False) if re.search(r'\d+/\d+', b.name)]
         if claimed > 0:
             self.info_set(self.tr('Zhaoxi Quests'), f'{self.tr("Claimed")} x{claimed}')
@@ -102,6 +104,18 @@ class CalendarTask(MyBaseTask):
 
     # 朝夕心愿任务卡坐标(1920x1080, 参考 Whimbox DAILY_TASK_CENTERS)
     ZHAOXI_CARD_CENTERS = [(549, 595), (790, 337), (1112, 378), (1315, 607), (1532, 375)]
+    # 页面右侧里程碑礼盒(100/200/.../500 点进度奖励), 竖排等距; 点最上面的即领取全部
+    ZHAOXI_GIFT_CENTERS = [(1810, 267), (1810, 372), (1810, 476), (1810, 581), (1810, 686)]
+
+    def claim_zhaoxi_gifts(self):
+        """领取朝夕心愿右侧里程碑礼盒: 点最上面一个即领取全部可领的,
+        随后关闭可能多页的恭喜获得奖励页"""
+        self.click(*self.ZHAOXI_GIFT_CENTERS[0], down_time=0.15, after_sleep=1.2)
+        if self.confirm_dialog(time_out=2) or self.close_reward_page(2):
+            self.log_info('CalendarTask: zhaoxi milestone gifts claimed.', notify=True)
+        else:
+            self.log_info('CalendarTask: no zhaoxi milestone gift to claim.')
+        self.park_cursor()
 
     def confirm_zhaoxi_tasks(self):
         """确认任务: 逐个点任务卡, 从底部详情条读任务文本与进度
