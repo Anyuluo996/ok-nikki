@@ -11,6 +11,9 @@ jobs:
 
     runs-on: windows-latest
 
+    permissions:
+      contents: write # Release 步骤需要写 release 权限(仓库默认只读会 403)
+
     env:
       PYTHONIOENCODING: 'UTF-8'
 
