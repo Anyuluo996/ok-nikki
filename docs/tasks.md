@@ -1,6 +1,6 @@
 # 任务开发
 
-一次性任务示例位于 `src/tasks/MyOneTimeTask.py`，后台触发任务示例位于 `src/tasks/MyTriggerTask.py`。
+一次性任务示例参考 `src/tasks/DailyTask.py`（通用能力在基类 `src/tasks/MyBaseTask.py`），后台触发任务示例参考 `src/tasks/MouseResetTask.py`。
 
 ## 创建任务
 

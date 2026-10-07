@@ -1,6 +1,7 @@
 import os
 
 from src.device.NikkiInteraction import NikkiInteraction
+from src.process_feature import process_feature
 
 version = "dev"
 #不需要修改version, Github Action打包会自动修改
@@ -24,8 +25,6 @@ config = {
     'gui': gui_config,
     'config_folder': 'configs', #最好不要修改
     'gui_icon': 'icons/icon.png', #窗口图标
-    'wait_until_before_delay': 0,
-    'wait_until_check_delay': 0,
     'wait_until_settle_time': 0, #调用 wait_until时候, 在第一次满足条件的时候, 会等待再次检测, 以避免某些滑动动画没到预定位置就在动画路径中被检测到
     'ocr': { #OCR 引擎, onnxocr + OpenVINO CPU/NPU
         'lib': 'onnxocr',
@@ -40,9 +39,6 @@ config = {
         'start_exe': True, #自动拉起游戏: 窗口不在时用 devices.json 里记住的 full_path 启动
         'interaction': [NikkiInteraction, 'Pynput', 'PostMessage', 'Genshin', 'PyDirect'], #NikkiInteraction: 后台保活渲染+定时消息, 见 src/device/NikkiInteraction.py
         'capture_method': ['WGC', 'BitBlt_RenderFull', 'BitBlt'],  # 游戏需窗口化; 全屏下 WGC 首帧会挂
-        'check_hdr': False, #当用户开启AutoHDR时候提示用户, 但不禁止使用
-        'force_no_hdr': False, #True=当用户开启AutoHDR时候禁止使用
-        'require_bg': True, #要求使用后台截图
     },
     'start_timeout': 120,  # default 60
     'supported_resolution': {
@@ -55,6 +51,7 @@ config = {
     'gui_title': 'ok-nikki',  #窗口名
     'template_matching': { # 可选, 如使用OpenCV的模板匹配
         'coco_feature_json': os.path.join('assets', 'coco_annotations.json'), #coco格式标记, 需要png图片, 在debug模式运行后, 会对进行切图仅保留被标记部分以减少图片大小
+        'feature_processor': process_feature, #模板加载期预处理钩子(src/process_feature.py), 按特征名做二值化等
         'default_horizontal_variance': 0.002, #默认x偏移, 查找不传box的时候, 会根据coco坐标, match偏移box内的
         'default_vertical_variance': 0.002, #默认y偏移
         'default_threshold': 0.8, #默认threshold
@@ -67,5 +64,8 @@ config = {
         [ "src.tasks.PassportTask", "PassportTask" ],
         [ "src.tasks.MineTask", "MineTask" ],
         ["ok", "DiagnosisTask"],
+    ],
+    'trigger_tasks': [ # 后台常驻触发任务
+        ["src.tasks.MouseResetTask", "MouseResetTask"], #游戏拖走光标时拉回原位(okww 移植)
     ],
 }

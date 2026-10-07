@@ -6,7 +6,8 @@ from src.tasks.MyBaseTask import MyBaseTask
 
 
 class PassportTask(MyBaseTask):
-    """奇迹之旅(通行证): J 键打开, 先在「旅行任务」页领取已完成任务的奖励(通行证经验),
+    """奇迹之旅(通行证): J 打开(新版本先落「乐园构想」页, 需点左下「奇迹之旅」),
+    先在「旅行任务」页领取已完成任务的奖励(通行证经验),
     再回「旅行秘宝」页领免费轨道奖励。
     页面特征「悠远颂歌」为大世界顶栏所无, 判定安全;
     旅行任务页任务文本含幻境名, MyBaseTask.PAGE_SIGS 已把 passport 判定放在 realm 之前"""
@@ -16,8 +17,9 @@ class PassportTask(MyBaseTask):
     CLAIM_ALL = re.compile(r'一\s*键\s*领\s*取|全\s*部\s*领\s*取|领\s*取\s*全\s*部')
     TASK_TAB = re.compile('旅行任务')
     TREASURE_TAB = re.compile('旅行秘宝')
-    # 任务页/秘宝页底部的「一键领取」固定位置(1920x1080), OCR 不中艺术字时兜底
-    CLAIM_ALL_POS = (1225, 990)
+    # 任务页/秘宝页底部的「一键领取」固定位置(相对比例, 1080p 标定 (1225,990)),
+    # OCR 不中艺术字时兜底
+    CLAIM_ALL_POS = (0.638, 0.917)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -56,13 +58,20 @@ class PassportTask(MyBaseTask):
         self.log_info(f'PassportTask finished, tasks {claimed_tasks}, track {claimed}.', notify=True)
 
     def open_passport(self, attempts=3):
-        """J 键打开奇迹之旅(后台实测可用)"""
+        """J 键打开奇迹之旅。新版本 J 先开「乐园构想」页, 需再点该页左下「奇迹之旅」入口"""
         if self.page_sig() == 'passport':
             return True
         for _ in range(attempts):
             self.send_key('j', after_sleep=3)
             if self.page_sig() == 'passport':
                 return True
+            # 乐园构想页(或任意停留页)左下角找奇迹之旅入口, 点进真正的通行证页
+            entry = next((b for b in self.ocr(log=False)
+                          if '奇迹之旅' in b.name and b.y > self.height * 0.8), None)
+            if entry:
+                self.click_box(entry, down_time=0.15, after_sleep=3)
+                if self.page_sig() == 'passport':
+                    return True
             self.close_pause_menu()
         return False
 
@@ -71,7 +80,7 @@ class PassportTask(MyBaseTask):
         完成态任务是礼盒图标(无文字), 页面底部「一键领取」是主要途径;
         逐行「领取/收下」兜底; 每轮领完向下滚一屏(本周任务/本期任务两段)"""
         tab = next((b for b in self.ocr(log=False)
-                    if self.TASK_TAB.search(b.name) and b.y < 120), None)
+                    if self.TASK_TAB.search(b.name) and b.y < self.height * 0.12), None)
         if not tab:
             self.log_info('PassportTask: travel tasks tab not found.')
             self.debug_screenshot('passport_no_task_tab')
@@ -88,7 +97,7 @@ class PassportTask(MyBaseTask):
                 # 任务页底部的一键领取优先(完成态任务没有文字按钮)
                 target = next((b for b in boxes
                                if self.CLAIM_ALL.fullmatch(b.name.strip())
-                               and b.y > 800), None)
+                               and b.y > self.height * 0.74), None)
                 if not target:
                     target = next((b for b in boxes
                                    if self.TASK_CLAIM.fullmatch(b.name.strip())), None)
@@ -118,7 +127,8 @@ class PassportTask(MyBaseTask):
             self.debug_screenshot(f'passport_tasks_r{rnd}')
             if not acted or rnd + 1 >= rounds:
                 break
-            self.scroll_relative(0.5, 0.5, 1) # 向下滚一屏看本期任务
+            # 向下翻一屏看本期任务段(scroll_relative 正数=向上滚, 负数=向下)
+            self.scroll_relative(0.5, 0.5, -1)
             self.sleep(1)
         self.log_info(f'PassportTask: claimed {claimed} travel task rewards.')
         if claimed == 0:
@@ -128,7 +138,7 @@ class PassportTask(MyBaseTask):
     def back_to_treasure_tab(self):
         """从旅行任务页切回旅行秘宝(奖励轨道)页"""
         tab = next((b for b in self.ocr(log=False)
-                    if self.TREASURE_TAB.search(b.name) and b.y < 120), None)
+                    if self.TREASURE_TAB.search(b.name) and b.y < self.height * 0.12), None)
         if tab:
             self.click_box(tab, down_time=0.15, after_sleep=2)
         return self.wait_page('passport', 4)

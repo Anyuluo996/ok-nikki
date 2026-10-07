@@ -1,9 +1,12 @@
-"""一键日常入口: 邮件+挖掘(同菜单接力) → 奇想日历+朝夕心愿+幻境挑战(同页面接力)。
+"""一键日常入口: 邮件+挖掘(同菜单接力) → 奇想日历+朝夕心愿+幻境挑战(同页面接力)
+→ 通行证 → 关闭游戏。
+幻境默认一键最大次数耗光活跃能量(Drain Energy), 耗完回日历补领新达标的里程碑奖励。
 
 用法:
   python scripts/run_daily.py            # 后台模式: 不抢前台鼠标(WM_ACTIVATE 保活渲染)
   python scripts/run_daily.py --fg       # 前台模式: 保持游戏前台, 定时任务/最稳推荐
   python scripts/run_daily.py --dry-run  # 演练: 幻境不注入体力
+  python scripts/run_daily.py --keep-game # 跑完保留游戏进程(调试用)
 
 前置: 游戏已启动(建议窗口化), 本脚本需管理员运行(游戏是 admin, 否则输入被 UIPI 丢弃)。
 """
@@ -52,10 +55,33 @@ def click_launcher_start_button():
     return True
 
 
+def find_official_launcher(exe_path):
+    """官方启动器 launcher.exe 在游戏根目录(游戏 exe 上溯 4 级), 直启 exe 无效时兜底"""
+    d = os.path.dirname(exe_path)
+    for _ in range(4):
+        d = os.path.dirname(d)
+        cand = os.path.join(d, 'launcher.exe')
+        if os.path.exists(cand):
+            return cand
+    return None
+
+
+def close_game():
+    """跑完关游戏: 强制终止游戏本体和残留启动器(游戏为服务器存档, 无本地进度风险)"""
+    for exe in ('X6Game-Win64-Shipping.exe', 'xstarter.exe'):
+        try:
+            r = subprocess.run(['taskkill', '/IM', exe, '/F'],
+                               capture_output=True, text=True)
+            print(f'close game: taskkill {exe} rc={r.returncode}', flush=True)
+        except Exception as e:
+            print(f'close game: {exe} error: {e}', flush=True)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--fg', action='store_true', help='前台模式: 保持游戏窗口前台(定时任务推荐)')
     parser.add_argument('--dry-run', action='store_true', help='演练: 幻境不注入体力')
+    parser.add_argument('--keep-game', action='store_true', help='跑完后保留游戏进程(调试用)')
     args = parser.parse_args()
 
     if hasattr(sys.stdout, 'reconfigure'):
@@ -77,6 +103,8 @@ def main():
         if exe_path and os.path.exists(exe_path):
             print(f'game not running, launching: {exe_path}', flush=True)
             subprocess.Popen([exe_path], cwd=os.path.dirname(exe_path))
+            launcher_exe = find_official_launcher(exe_path)
+            launcher_started = False
             launch_t0 = time.time()
             clicks = 0
             last_click = 0.0
@@ -87,6 +115,11 @@ def main():
                 if dm.hwnd_window and dm.hwnd_window.hwnd:
                     print(f'game window found after {int(time.time()-launch_t0)}s', flush=True)
                     break
+                # 直启 exe 静默失败(新版本不再自动弹启动器)时, 20s 后改拉官方启动器
+                if not launcher_started and launcher_exe and time.time() - launch_t0 > 20:
+                    print(f'game window still missing, starting official launcher: {launcher_exe}', flush=True)
+                    subprocess.Popen([launcher_exe], cwd=os.path.dirname(launcher_exe))
+                    launcher_started = True
                 # 启动器出现后代点「启动游戏」(最多 3 次, 间隔 15s)
                 if clicks < 3 and time.time() - launch_t0 > 12 and time.time() - last_click > 15:
                     if click_launcher_start_button():
@@ -175,11 +208,14 @@ def main():
         return False
 
     # —— 菜单组: 邮件和挖掘入口同在美鸭梨菜单, 开一次菜单做完再回世界 ——
+    # 冷启动时游戏可能还停在登录页, 必须先推进到大世界再开菜单(否则菜单链静默失败)
+    # 挖掘网格入口只认真实点击, 强制允许抢前台(用户配置里存了 False 也覆盖)
+    mine_overrides = {'Allow Foreground Steal': True}
     chain_done = False
     try:
-        if base.open_pause_menu():
+        if base.ensure_in_game() and base.open_pause_menu():
             ok_mail = build(DailyTask).claim_mail_flow(leave_menu_open=True)
-            ok_mine = build(MineTask).mine_flow()
+            ok_mine = build(MineTask, **mine_overrides).mine_flow()
             base.close_pause_menu()
             chain_done = ok_mail or ok_mine
     except Exception as e:
@@ -190,15 +226,20 @@ def main():
             pass
     if not chain_done:
         run_one(DailyTask, **{'Claim Shop Free Pack': False}) # 商城暂不跑(用户要求)
-        run_one(MineTask)
+        run_one(MineTask, **mine_overrides)
 
     # —— 日历组: 朝夕心愿和幻境挑战入口同在奇想日历页, 开一次日历做完再回世界 ——
     cal_done = False
-    realm_overrides = {'Dry Run': True} if args.dry_run else {}
+    # 幻境一键最大次数耗光活跃能量(40/次), dry-run 只演练不注入
+    realm_overrides = {'Drain Energy': True, 'Challenge Count': 99}
+    if args.dry_run:
+        realm_overrides['Dry Run'] = True
     try:
         cal = build(CalendarTask)
         if cal.calendar_flow():
             build(RealmTask, **realm_overrides).realm_flow()
+            # 耗完体力后日历里程碑/朝夕礼盒会有新达标的, 重跑一次日历领取再回世界
+            build(CalendarTask).calendar_flow()
             cal_done = True
             base.back_to_world()
     except Exception as e:
@@ -220,6 +261,8 @@ def main():
         dm.interaction.deactivate()
     except Exception:
         pass
+    if not args.keep_game:
+        close_game()
     print('RUN DAILY DONE', flush=True)
     time.sleep(1)
     os._exit(0) # executor 线程非 daemon, 强退防僵尸

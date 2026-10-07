@@ -13,12 +13,11 @@ class DailyTask(MyBaseTask):
     SHOP_ENTRY = re.compile('商城|商店|Shop')
     CLAIM = re.compile('一键领取|全部领取|领取全部|领取|Claim')
     FREE = re.compile('免费|一键领取|Free')
-    # 实测坐标(1920x1080): 美鸭梨菜单底部工具排的信封 / 大世界右上角快捷排第一个图标(商城)
+    # 实测坐标(相对比例): 美鸭梨菜单底部工具排的信封 / 大世界右上角快捷排第一个图标(商城)
     MAIL_ICON_POS = (0.447, 0.930)
     SHOP_ICON_POS = (0.633, 0.062)
-    # 邮件页底部「领取全部」按钮; (0.75,0.3) 为安全区, 移过去避免悬停触发 tooltip
+    # 邮件页底部「领取全部」按钮
     CLAIM_ALL_POS = (0.292, 0.947)
-    SAFE_POS = (0.75, 0.3)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -34,18 +33,17 @@ class DailyTask(MyBaseTask):
             'Claim Shop Free Pack': 'Open the shop and claim the free daily pack.',
         })
 
-    def run(self, chain_mine=False):
+    def run(self, **kwargs):
         self.info_clear()
         if not self.ensure_foreground():
             return
         if not self.ensure_in_game():
             return
         if self.config.get('Claim Mail'):
-            self.claim_mail_flow(leave_menu_open=chain_mine)
+            self.claim_mail_flow()
         if self.config.get('Claim Shop Free Pack'):
             self.claim_shop_free() # 商城直接走大世界右上角入口, 需在关闭菜单的状态下执行
-        if not chain_mine:
-            self.close_pause_menu()
+        self.close_pause_menu()
         self.log_info('DailyTask finished.', notify=True)
 
     def claim_mail_flow(self, leave_menu_open=False):
@@ -93,9 +91,9 @@ class DailyTask(MyBaseTask):
             entry = self.wait_ocr(match=self.SHOP_ENTRY, time_out=3, log=True)
             if entry:
                 box = entry[0]
-                self.real_click(box.x + box.width / 2, box.y - 40)
+                self.real_click(box.x + box.width / 2, box.y - self.px(40))
             else: # OCR 不中退回坐标(右上角第一个图标)
-                self.real_click(self.SHOP_ICON_POS[0] * 1920, self.SHOP_ICON_POS[1] * 1080)
+                self.real_click(self.SHOP_ICON_POS[0] * self.width, self.SHOP_ICON_POS[1] * self.height)
         if not self.wait_page('shop', 3):
             self.log_info('DailyTask: shop page did not open (hotkey H and icon click both missed).')
             self.debug_screenshot('shop_not_open')

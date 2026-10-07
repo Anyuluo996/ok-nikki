@@ -18,7 +18,7 @@ msgstr "打开游戏菜单, 领取邮件附件和商城免费礼包。"
 msgid "Claim Mail"
 msgstr "领取邮件"
 
-msgid "Open the mailbox and claim all attachments."
+msgid "Open the mailbox (envelope icon in the Meiyali menu) and claim all attachments."
 msgstr "打开邮箱并领取全部附件。"
 
 msgid "Claim Shop Free Pack"
@@ -93,8 +93,6 @@ msgstr "挑战次数"
 msgid "How many quick challenges to run (each consumes energy)."
 msgstr "快速挑战的次数(每次消耗体力)。"
 
-msgid "Realm Level"
-msgstr "挑战关卡"
 
 msgid "Which weekly boss level to quick challenge."
 msgstr "快速挑战哪个周本关卡。"
@@ -158,3 +156,36 @@ msgstr "材料一键最大"
 
 msgid "Pick the most stocked material and max its quantity via the arrow."
 msgstr "优先选库存最多的材料, 弹窗内按箭头放入最大数量(自动限到体力可负担)。"
+
+msgid "Mouse Reset"
+msgstr "光标复位"
+
+msgid "Pull the mouse back if the game drags it away while running in background."
+msgstr "后台运行时, 若游戏把鼠标拖走则拉回原位。"
+
+msgid "Quick challenges to run (weekly reward is once per week)."
+msgstr "快速挑战执行次数(周本奖励每周仅一次)。"
+
+msgid "Claim available rewards on the Whim Calendar page."
+msgstr "在奇想日历页领取可领取的奖励。"
+
+msgid "Weekly Boss"
+msgstr "周本 Boss"
+
+msgid "Weekly boss to challenge: 奇格格达 or 卷卷. Empty = skip weekly."
+msgstr "要挑战的周本 Boss: 奇格格达 或 卷卷。留空 = 不打周本。"
+
+msgid "Claim free-track rewards in the Whim Journey."
+msgstr "领取奇迹之旅(通行证)免费轨道奖励。"
+
+msgid "Allow Foreground Steal"
+msgstr "允许抢占前台"
+
+msgid "Allow bringing the game to front for a real click when the background method fails."
+msgstr "后台方式失败时, 允许把游戏拉到前台做真实点击。"
+
+msgid "Drain Energy"
+msgstr "一键耗尽体力"
+
+msgid "Use the max-count arrow in the inject dialog to deplete all active energy (40 per claim)."
+msgstr "注入弹窗内按箭头把次数拉到最大, 一次性耗光活跃能量(每次消耗 40)。"

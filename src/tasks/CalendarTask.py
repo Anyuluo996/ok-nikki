@@ -1,4 +1,5 @@
 import re
+import time
 
 from qfluentwidgets import FluentIcon
 
@@ -40,6 +41,9 @@ class CalendarTask(MyBaseTask):
     def calendar_flow(self):
         """日历接力: 开日历→领取→朝夕心愿确认, 结束后停在日历页
         (幻境挑战入口同在日历页, 供 RealmTask 接力, 不用回大世界再按 L)"""
+        # 先作废旧任务文本: 探测失败或配置关闭时, RealmTask 不会用昨日任务路由
+        MyBaseTask.zhaoxi_task_texts = []
+        MyBaseTask.zhaoxi_task_date = None
         if not self.open_whim_calendar():
             self.log_error('CalendarTask: cannot open the Whim Calendar.', notify=True)
             self.debug_screenshot('calendar_not_open')
@@ -102,10 +106,12 @@ class CalendarTask(MyBaseTask):
         self.debug_screenshot('zhaoxi_page') # 校准用: 记录每日任务列表内容
         self.send_key('esc', after_sleep=2) # 回日历页
 
-    # 朝夕心愿任务卡坐标(1920x1080, 参考 Whimbox DAILY_TASK_CENTERS)
-    ZHAOXI_CARD_CENTERS = [(549, 595), (790, 337), (1112, 378), (1315, 607), (1532, 375)]
+    # 朝夕心愿任务卡中心(相对比例, 1080p 标定 (549,595)... 参考 Whimbox DAILY_TASK_CENTERS)
+    ZHAOXI_CARD_CENTERS = [(0.286, 0.551), (0.411, 0.312), (0.579, 0.350),
+                           (0.685, 0.562), (0.798, 0.347)]
     # 页面右侧里程碑礼盒(100/200/.../500 点进度奖励), 竖排等距; 点最上面的即领取全部
-    ZHAOXI_GIFT_CENTERS = [(1810, 267), (1810, 372), (1810, 476), (1810, 581), (1810, 686)]
+    ZHAOXI_GIFT_CENTERS = [(0.943, 0.247), (0.943, 0.344), (0.943, 0.441),
+                           (0.943, 0.538), (0.943, 0.635)]
 
     def claim_zhaoxi_gifts(self):
         """领取朝夕心愿右侧里程碑礼盒: 点最上面一个即领取全部可领的,
@@ -125,10 +131,12 @@ class CalendarTask(MyBaseTask):
         found = []
         for cx, cy in self.ZHAOXI_CARD_CENTERS:
             self.click(cx, cy, down_time=0.15, after_sleep=1.2)
-            detail = ' '.join(b.name for b in self.ocr(log=False) if b.y > 860)
+            detail = ' '.join(b.name for b in self.ocr(log=False)
+                              if b.y > self.height * 0.8)
             if detail:
                 found.append(detail[:80])
         MyBaseTask.zhaoxi_task_texts = found
+        MyBaseTask.zhaoxi_task_date = time.strftime('%Y-%m-%d')
         self.info_set(self.tr('Zhaoxi Quests'), f'{len(found)} {self.tr("Confirmed")}')
         self.log_info(f'CalendarTask: zhaoxi card details: {found}', notify=True)
         self.debug_screenshot('zhaoxi_cards')

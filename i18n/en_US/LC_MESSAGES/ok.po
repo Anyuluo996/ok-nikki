@@ -18,7 +18,7 @@ msgstr "Open the in-game menu, claim mail attachments and the free shop pack."
 msgid "Claim Mail"
 msgstr "Claim Mail"
 
-msgid "Open the mailbox and claim all attachments."
+msgid "Open the mailbox (envelope icon in the Meiyali menu) and claim all attachments."
 msgstr "Open the mailbox and claim all attachments."
 
 msgid "Claim Shop Free Pack"
@@ -96,8 +96,6 @@ msgstr "Challenge Count"
 msgid "How many quick challenges to run (each consumes energy)."
 msgstr "How many quick challenges to run (each consumes energy)."
 
-msgid "Realm Level"
-msgstr "Realm Level"
 
 msgid "Which weekly boss level to quick challenge."
 msgstr "Which weekly boss level to quick challenge."
@@ -158,3 +156,36 @@ msgstr "Escalate Max"
 
 msgid "Pick the most stocked material and max its quantity via the arrow."
 msgstr "Pick the most stocked material and max its quantity via the arrow."
+
+msgid "Mouse Reset"
+msgstr "Mouse Reset"
+
+msgid "Pull the mouse back if the game drags it away while running in background."
+msgstr "Pull the mouse back if the game drags it away while running in background."
+
+msgid "Quick challenges to run (weekly reward is once per week)."
+msgstr "Quick challenges to run (weekly reward is once per week)."
+
+msgid "Claim available rewards on the Whim Calendar page."
+msgstr "Claim available rewards on the Whim Calendar page."
+
+msgid "Weekly Boss"
+msgstr "Weekly Boss"
+
+msgid "Weekly boss to challenge: 奇格格达 or 卷卷. Empty = skip weekly."
+msgstr "Weekly boss to challenge: 奇格格达 or 卷卷. Empty = skip weekly."
+
+msgid "Claim free-track rewards in the Whim Journey."
+msgstr "Claim free-track rewards in the Whim Journey."
+
+msgid "Allow Foreground Steal"
+msgstr "Allow Foreground Steal"
+
+msgid "Allow bringing the game to front for a real click when the background method fails."
+msgstr "Allow bringing the game to front for a real click when the background method fails."
+
+msgid "Drain Energy"
+msgstr "Drain Energy"
+
+msgid "Use the max-count arrow in the inject dialog to deplete all active energy (40 per claim)."
+msgstr "Use the max-count arrow in the inject dialog to deplete all active energy (40 per claim)."

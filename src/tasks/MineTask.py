@@ -13,6 +13,9 @@ class MineTask(MyBaseTask):
     DIG_AGAIN = re.compile('再次挖掘|继续挖掘|开始挖掘')
     DIGGING_TIMER = re.compile(r'\d{2}:\d{2}:\d{2}')
     NEED_SETUP = re.compile('选择物资|挖掘队列（0/|挖掘队列\\(0/')
+    # 菜单第一页网格里「美鸭梨挖掘」图标中心(1080p 标定 (941,503))。
+    # 标签是艺术字, OCR 时灵时不灵, 找不到文字时按坐标 hover+Enter 兜底
+    MINE_ICON_POS = (0.490, 0.466)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -21,7 +24,7 @@ class MineTask(MyBaseTask):
         self.icon = FluentIcon.SHOPPING_CART
         self.default_config.update({
             'Dig Again After Harvest': True,
-            'Allow Foreground Steal': False,
+            'Allow Foreground Steal': True,
         })
         self.config_description.update({
             'Dig Again After Harvest': 'Start the same dig again right after harvesting.',
@@ -64,11 +67,12 @@ class MineTask(MyBaseTask):
             if not self.open_pause_menu():
                 return False
             entry = next((b for b in self.ocr(log=False) if '美鸭梨挖掘' in b.name), None)
-            if not entry:
-                self.sleep(1)
-                continue
-            # 热区在图标上(文字上方 ~55px), 点文字无效
-            cx, cy = entry.x + entry.width / 2, entry.y - 55
+            if entry:
+                # 热区在图标上(文字上方 ~55px), 点文字无效
+                cx, cy = entry.x + entry.width / 2, entry.y - self.px(55)
+            else:
+                # OCR 漏识别艺术字标签时, 按标定图标位置兜底
+                cx, cy = self.MINE_ICON_POS[0] * self.width, self.MINE_ICON_POS[1] * self.height
             if self.hover_and_enter(cx, cy):
                 if self.wait_page('mine', 4):
                     return True

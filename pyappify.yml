@@ -3,7 +3,7 @@ uac: true
 icon: "icons/icon.png"
 profiles:
   - name: "China"
-    git_url: "https://github.com/your-github-name/ok-nikki.git" # TODO: 换成你自己的仓库地址(用于增量更新)
+    git_url: "https://github.com/Anyuluo996/ok-nikki.git" # 增量更新源(与 origin 一致)
     admin: true
     main_script: "main.py"
     requires_python: "3.12"

@@ -1,6 +1,6 @@
 # Task Development
 
-The one-time task example is `src/tasks/MyOneTimeTask.py`; the background trigger example is `src/tasks/MyTriggerTask.py`.
+See `src/tasks/DailyTask.py` for a one-time task example (shared behavior in `src/tasks/MyBaseTask.py`), and `src/tasks/MouseResetTask.py` for a background trigger task example.
 
 ## Create a Task
 
