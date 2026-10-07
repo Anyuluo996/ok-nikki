@@ -6,21 +6,25 @@ from src.tasks.MyBaseTask import MyBaseTask
 
 
 class RealmTask(MyBaseTask):
-    """幻境挑战: 按朝夕心愿任务决定打哪个幻境, 快速挑战消耗活跃能量(体力)。
-    周本(心之突破)奖励一周只领一次, 必须在「Weekly Boss」配置里选了奇格格达/卷卷才打;
-    奖励次数剩 0/1 时零点击跳过。
-    素材激化幻境没有快速挑战, 需进副本走到激化台: F 选产物 → 选材料 → 激化材料"""
+    """幻境挑战: 按固定优先级消耗活跃能量(体力), Drain Energy 时一键最大次数耗光。
+    优先级: 周本(心之突破, 按「Weekly Boss」配置, 本周奖励次数已用完则跳过)
+    → 素材兑换(按「Material Exchange Count」配置, 进副本激化台兑换)
+    → 魔物试炼幻境 → 祝福闪光幻境(快速挑战 40 体力/次)。
+    心之突破有关卡列表(奇格格达/卷卷); 素材激化没有快速挑战, 需进副本走到激化台"""
 
     QUICK_PLAY = re.compile('快速挑战')
     WEEKLY_REALM = '心之突破幻境'
     MATERIAL_REALM = '素材激化幻境'
     WEEKLY_COUNT = re.compile(r'每周幻境')
-    # 朝夕心愿任务关键词 → 对应幻境(同 Whimbox zxxy_task_info_list 的挑战类映射)
+    # 快速挑战类幻境的消耗优先级(周本/素材兑换在 quick_challenge 里按配置先行)
+    DRAIN_REALMS = ('魔物试炼幻境', '祝福闪光幻境')
+    # 朝夕心愿任务关键词 → 对应幻境: 优先按任务文本补齐 500 活跃度所需
     TASK_REALM_MAP = [
         (re.compile('魔物试炼'), '魔物试炼幻境'),
         (re.compile('祝福闪光'), '祝福闪光幻境'),
         (re.compile('素材激化'), '素材激化幻境'),
     ]
+    CLAIM_COST = 40  # 快速挑战单次消耗(注入弹窗「消耗40活跃能量」)
     # 副本激化台交互提示与产物/材料格特征
     ESCALATE_PROMPT = re.compile('打开素材激化台|激化台')
     ESCALATE_BUTTON = re.compile('激化材料')
@@ -30,21 +34,21 @@ class RealmTask(MyBaseTask):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.name = "Realm Challenge"
-        self.description = "Spend energy via quick challenge in the realm chosen by zhaoxi tasks; escalate materials in the Material Realm."
+        self.description = "Spend all active energy by priority: weekly boss (per config) -> material exchange (per config) -> monster trial -> blessing flash."
         self.icon = FluentIcon.FLAG
         self.default_config.update({
             'Challenge Count': 1,
             'Drain Energy': False,  # 注入弹窗一键最大次数, 耗光活跃能量
             'Weekly Boss': '',  # 空=不打周本; 奇格格达 / 卷卷
-            'Material Exchange Count': 0,  # >0 时额外做素材激化兑换
+            'Material Exchange Count': 0,  # >0 时优先做素材激化兑换
             'Escalate Product': '噗灵',  # 噗灵 / 丝线 / 闪亮泡泡
             'Escalate Max': True,  # 选择材料弹窗按箭头一键最大数量
         })
         self.config_description.update({
-            'Challenge Count': 'Quick challenges to run (weekly reward is once per week).',
+            'Challenge Count': 'Quick challenges per realm when Drain Energy is off.',
             'Drain Energy': 'Use the max-count arrow in the inject dialog to deplete all active energy (40 per claim).',
             'Weekly Boss': 'Weekly boss to challenge: 奇格格达 or 卷卷. Empty = skip weekly.',
-            'Material Exchange Count': 'Material realm exchanges when no realm task found (0 = off).',
+            'Material Exchange Count': 'Material realm exchanges before quick challenges (0 = off).',
             'Escalate Product': 'Product to escalate into: 噗灵 / 丝线 / 闪亮泡泡.',
             'Escalate Max': 'Pick the most stocked material and max its quantity via the arrow.',
         })
@@ -68,65 +72,78 @@ class RealmTask(MyBaseTask):
         """日历接力: 假定已停在奇想日历页(入口同页), 完成后停在原处由调用方退出"""
         return self.quick_challenge()
 
-    def pick_realm(self):
-        """按朝夕心愿任务文本决定打哪个幻境; 任务进度 N>=M 视为已完成跳过"""
-        texts = self.zhaoxi_texts_today()
-        for pat, realm in self.TASK_REALM_MAP:
-            for detail in texts:
-                if not pat.search(detail):
-                    continue
-                if self._progress_done(detail):
-                    continue
-                return realm
-        return None
-
-    @staticmethod
-    def _progress_done(detail):
-        m = re.search(r'(\d+)\s*/\s*(\d+)', detail)
-        return bool(m and int(m.group(1)) >= int(m.group(2)))
-
     def quick_challenge(self):
+        """两段式消耗体力:
+        1) 优先按朝夕心愿任务文本路由(魔物试炼/祝福闪光/素材激化),
+           精确按任务缺口次数打, 补齐 500 活跃度所需;
+        2) 剩余体力按固定优先级耗光: 周本(按配置) → 素材兑换(按配置) →
+           魔物试炼 → 祝福闪光, Drain Energy 时一键最大次数"""
         count = int(self.config.get('Challenge Count') or 1)
-        texts = self.zhaoxi_texts_today()
-        realm = self.pick_realm()
-        level_name = None
-        if realm is None:
-            # 无专属幻境任务: 体力任务走周本, 但必须显式选了 boss(没选择就不打)
-            weekly_boss = (self.config.get('Weekly Boss') or '').strip()
-            energy = next((d for d in texts if '活跃能量' in d), None)
-            if energy and not self._progress_done(energy):
-                if not weekly_boss:
-                    self.log_info('RealmTask: energy task unfinished but Weekly Boss not '
-                                  'configured, skip (no energy spent).', notify=True)
-                    self.info_set(self.tr('Realm'), self.tr('Need Manual Setup'))
-                    return
-                realm = self.WEEKLY_REALM
-                level_name = weekly_boss
-            else:
-                # 朝夕心愿没点名幻境时, 按配置做素材激化兑换
-                material_count = int(self.config.get('Material Exchange Count') or 0)
-                if material_count > 0:
-                    self.material_flow(material_count)
-                else:
-                    self.log_info('RealmTask: no unfinished realm-related tasks, skip.')
-                return
-        if realm == self.MATERIAL_REALM:
-            self.material_flow(max(1, count))
-            return
+        weekly_boss = (self.config.get('Weekly Boss') or '').strip()
+        material_count = int(self.config.get('Material Exchange Count') or 0)
         total = 0
-        for i in range(count):
-            self.log_info(f'RealmTask: quick challenge #{i + 1}/{count} @ {realm}')
-            made = self.enter_realm_and_run(realm, level_name)
-            if made <= 0:
-                self.log_info(f'RealmTask: challenge #{i + 1} made no progress '
-                              '(energy depleted or flow failed), stop.')
-                break
-            total += made
-            self.info_set(self.tr('Realm'), f'{realm} {self.tr("Challenged")} x{total}')
-            if self.config.get('Dry Run'):
+
+        # —— 1) 朝夕文本路由: 未完成任务按缺口次数精确打 ——
+        for pat, realm in self.TASK_REALM_MAP:
+            detail = next((d for d in self.zhaoxi_texts_today() if pat.search(d)), None)
+            if detail is None:
+                continue
+            need = self._task_need_claims(detail)
+            if need <= 0:
+                self.log_info(f'RealmTask: zhaoxi task already done: {detail[:30]}...')
+                continue
+            self.log_info(f'RealmTask: zhaoxi task needs {need} more claims @ {realm}.')
+            if realm == self.MATERIAL_REALM:
+                self.material_flow(min(need, count))
+                continue
+            for i in range(min(need, count)):
+                made = self.enter_realm_and_run(realm, drain=False)
+                if made <= 0:
+                    break
+                total += made
+                self.info_set(self.tr('Realm'), f'{realm} {self.tr("Challenged")} x{total}')
+                if self.config.get('Dry Run'):
+                    break
+
+        # —— 2) 剩余体力按固定优先级耗光 ——
+        if weekly_boss:
+            made = self.enter_realm_and_run(self.WEEKLY_REALM, weekly_boss)
+            if made > 0:
+                total += made
+                self.info_set(self.tr('Weekly Realm'), f'{self.tr("Challenged")} x{made}')
+        if material_count > 0:
+            self.material_flow(material_count)
+        for realm in self.DRAIN_REALMS:
+            for i in range(count):
+                self.log_info(f'RealmTask: quick challenge #{i + 1} @ {realm} (total {total}).')
+                made = self.enter_realm_and_run(realm)
+                if made <= 0:
+                    self.log_info(f'RealmTask: {realm} made no progress '
+                                  '(depleted or entry missing), next.')
+                    break
+                total += made
+                self.info_set(self.tr('Realm'), f'{realm} {self.tr("Challenged")} x{total}')
+                if self.config.get('Dry Run'):
+                    break
+            if self.config.get('Dry Run') and total:
                 break
         if total:
             self.log_info(f'RealmTask: claimed {total} realm rewards this run.', notify=True)
+        else:
+            self.log_info('RealmTask: nothing claimed (energy depleted or nothing configured).')
+
+    @staticmethod
+    def _task_need_claims(detail):
+        """朝夕任务文本里的进度 N/M → 还需的快速挑战次数(40 体力/次, 向上取整);
+        读不到进度视为还需 1 次, N>=M 视为已完成返回 0"""
+        pairs = [(int(n), int(m)) for n, m in re.findall(r'(\d+)\s*/\s*(\d+)', detail)]
+        prog = next(((n, m) for n, m in pairs if n <= m), None)
+        if prog is None:
+            return 1
+        n, m = prog
+        if n >= m:
+            return 0
+        return -(-(m - n) // RealmTask.CLAIM_COST)
 
     def open_realm_hub(self, attempts=2):
         """日历页右上的幻境挑战卡 → 幻境挑战 hub。
@@ -157,8 +174,9 @@ class RealmTask(MyBaseTask):
                 return False
         return self.page_sig() == 'realm'
 
-    def enter_realm_and_run(self, realm_name, level_name=None):
+    def enter_realm_and_run(self, realm_name, level_name=None, drain=None):
         """进入指定幻境(日历挑战列表内联或幻境 hub 页都可点), 选关并快速挑战。
+        drain=None 用 Drain Energy 配置, True/False 强制开/关一键最大次数。
         返回本次领取的奖励次数; 0 = 没打成(体力不足/次数用尽/流程失败), 调用方应停止"""
         boxes = self.ocr(log=False)
         if self.page_sig(boxes) != 'realm' or not any(realm_name in b.name for b in boxes):
@@ -210,7 +228,8 @@ class RealmTask(MyBaseTask):
             self.debug_screenshot('realm_no_inject')
             return 0
         claims = 1
-        if self.config.get('Drain Energy'):
+        use_drain = self.config.get('Drain Energy') if drain is None else drain
+        if use_drain:
             claims = self._inject_max(inject)
             if claims <= 0:
                 return 0

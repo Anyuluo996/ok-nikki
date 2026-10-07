@@ -109,19 +109,27 @@ class CalendarTask(MyBaseTask):
     # 朝夕心愿任务卡中心(相对比例, 1080p 标定 (549,595)... 参考 Whimbox DAILY_TASK_CENTERS)
     ZHAOXI_CARD_CENTERS = [(0.286, 0.551), (0.411, 0.312), (0.579, 0.350),
                            (0.685, 0.562), (0.798, 0.347)]
-    # 页面右侧里程碑礼盒(100/200/.../500 点进度奖励), 竖排等距; 点最上面的即领取全部
+    # 页面右侧里程碑礼盒(100..500 活跃度档位), 竖排等距; 逐档点击领取
     ZHAOXI_GIFT_CENTERS = [(0.943, 0.247), (0.943, 0.344), (0.943, 0.441),
                            (0.943, 0.538), (0.943, 0.635)]
 
     def claim_zhaoxi_gifts(self):
-        """领取朝夕心愿右侧里程碑礼盒: 点最上面一个即领取全部可领的,
-        随后关闭可能多页的恭喜获得奖励页"""
-        self.click(*self.ZHAOXI_GIFT_CENTERS[0], down_time=0.15, after_sleep=1.2)
-        if self.confirm_dialog(time_out=2) or self.close_reward_page(2):
-            self.log_info('CalendarTask: zhaoxi milestone gifts claimed.', notify=True)
+        """领取朝夕心愿右侧里程碑礼盒(100..500 活跃度档位): 逐档点击,
+        每档确认弹窗或恭喜获得页出现才算领到; 最后读活跃度进度(如 350/500)"""
+        claimed = 0
+        for cx, cy in self.ZHAOXI_GIFT_CENTERS:
+            self.click(cx, cy, down_time=0.15, after_sleep=1.2)
+            if self.confirm_dialog(time_out=2) or self.close_reward_page(2):
+                claimed += 1
+            self.park_cursor()
+        if claimed:
+            self.info_set(self.tr('Zhaoxi Quests'), f'{self.tr("Claimed")} x{claimed}')
+            self.log_info(f'CalendarTask: zhaoxi milestone gifts claimed x{claimed}.', notify=True)
         else:
             self.log_info('CalendarTask: no zhaoxi milestone gift to claim.')
-        self.park_cursor()
+        m = re.search(r'(\d+)\s*/\s*500', ' '.join(b.name for b in self.ocr(log=False)))
+        if m:
+            self.log_info(f'CalendarTask: zhaoxi activity {m.group(1)}/500.', notify=True)
 
     def confirm_zhaoxi_tasks(self):
         """确认任务: 逐个点任务卡, 从底部详情条读任务文本与进度

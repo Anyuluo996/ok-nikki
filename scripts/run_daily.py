@@ -190,71 +190,70 @@ def main():
             task.config[k] = v
         return task
 
-    def run_one(cls, retries=2, **config_overrides):
-        """带重试跑任务: 每次尝试失败后回大世界再战"""
+    def step(name, fn, retries=3):
+        """跑一个步骤: 失败退回大世界重试; 多次仍失败则存截图并中止后续步骤(不静默跳过)"""
         for attempt in range(1, retries + 1):
             try:
-                task = build(cls, **config_overrides)
-                task.run()
-                if base.back_to_world():
+                if fn():
                     return True
-                print(f'{cls.__name__}: attempt {attempt} stuck off-world, retrying', flush=True)
             except Exception as e:
-                print(f'RUN ERROR {cls.__name__} attempt {attempt}: {e}', flush=True)
-                try:
-                    base.back_to_world()
-                except Exception:
-                    pass
+                print(f'{name}: attempt {attempt} error: {e}', flush=True)
+            print(f'{name}: attempt {attempt} failed, back to world and retry.', flush=True)
+            try:
+                base.back_to_world()
+            except Exception:
+                pass
+        base.debug_screenshot(f'nikki_{name}_stuck')
+        print(f'{name}: stuck after {retries} attempts, screenshot saved, stop.', flush=True)
         return False
 
-    # —— 菜单组: 邮件和挖掘入口同在美鸭梨菜单, 开一次菜单做完再回世界 ——
-    # 冷启动时游戏可能还停在登录页, 必须先推进到大世界再开菜单(否则菜单链静默失败)
+    # —— 步骤 1: 菜单组(邮件+挖掘)。入口同在美鸭梨菜单, 开一次菜单做完再回世界 ——
+    # 冷启动时游戏可能还停在登录页, 必须先推进到大世界再开菜单
     # 挖掘网格入口只认真实点击, 强制允许抢前台(用户配置里存了 False 也覆盖)
     mine_overrides = {'Allow Foreground Steal': True}
-    chain_done = False
-    try:
-        if base.ensure_in_game() and base.open_pause_menu():
-            ok_mail = build(DailyTask).claim_mail_flow(leave_menu_open=True)
-            ok_mine = build(MineTask, **mine_overrides).mine_flow()
-            base.close_pause_menu()
-            chain_done = ok_mail or ok_mine
-    except Exception as e:
-        print(f'menu chain error: {e}', flush=True)
-        try:
-            base.back_to_world()
-        except Exception:
-            pass
-    if not chain_done:
-        run_one(DailyTask, **{'Claim Shop Free Pack': False}) # 商城暂不跑(用户要求)
-        run_one(MineTask, **mine_overrides)
 
-    # —— 日历组: 朝夕心愿和幻境挑战入口同在奇想日历页, 开一次日历做完再回世界 ——
-    cal_done = False
+    def menu_chain():
+        if not (base.ensure_in_game() and base.open_pause_menu()):
+            return False
+        ok_mail = build(DailyTask).claim_mail_flow(leave_menu_open=True)
+        ok_mine = build(MineTask, **mine_overrides).mine_flow()
+        base.close_pause_menu()
+        return ok_mail or ok_mine
+
+    # —— 步骤 2: 日历组(日历领取+朝夕心愿→幻境耗体力→回日历补领里程碑) ——
     # 幻境一键最大次数耗光活跃能量(40/次), dry-run 只演练不注入
     realm_overrides = {'Drain Energy': True, 'Challenge Count': 99}
     if args.dry_run:
         realm_overrides['Dry Run'] = True
-    try:
-        cal = build(CalendarTask)
-        if cal.calendar_flow():
-            build(RealmTask, **realm_overrides).realm_flow()
-            # 耗完体力后日历里程碑/朝夕礼盒会有新达标的, 重跑一次日历领取再回世界
-            build(CalendarTask).calendar_flow()
-            cal_done = True
-            base.back_to_world()
-    except Exception as e:
-        print(f'calendar chain error: {e}', flush=True)
-        try:
-            base.back_to_world()
-        except Exception:
-            pass
-    if not cal_done:
-        run_one(CalendarTask)
-        run_one(RealmTask, **realm_overrides)
 
-    # —— 通行证: J 打开奇迹之旅领免费奖励(需在大世界) ——
+    def calendar_realm_chain():
+        if not base.ensure_in_game():
+            return False
+        cal = build(CalendarTask)
+        if not cal.calendar_flow():
+            return False
+        build(RealmTask, **realm_overrides).realm_flow()
+        # 耗完体力后朝夕活跃度里程碑/日历奖励会有新达标档位, 重跑一次日历领取
+        if not build(CalendarTask).calendar_flow():
+            return False
+        return base.back_to_world()
+
+    # —— 步骤 3: 通行证(J 打开奇迹之旅领奖励, 需在大世界) ——
     from src.tasks.PassportTask import PassportTask
-    run_one(PassportTask)
+
+    def passport_chain():
+        if not base.ensure_in_game():
+            return False
+        build(PassportTask).run()
+        return True
+
+    if step('daily_menu', menu_chain):
+        if step('calendar_realm', calendar_realm_chain):
+            step('passport', passport_chain)
+        else:
+            print('daily chain: abort after calendar_realm stuck.', flush=True)
+    else:
+        print('daily chain: abort after daily_menu stuck.', flush=True)
 
     stop.set()
     try:
