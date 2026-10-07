@@ -109,27 +109,36 @@ class CalendarTask(MyBaseTask):
     # 朝夕心愿任务卡中心(相对比例, 1080p 标定 (549,595)... 参考 Whimbox DAILY_TASK_CENTERS)
     ZHAOXI_CARD_CENTERS = [(0.286, 0.551), (0.411, 0.312), (0.579, 0.350),
                            (0.685, 0.562), (0.798, 0.347)]
-    # 页面右侧里程碑礼盒(100..500 活跃度档位), 竖排等距; 逐档点击领取
+    # 页面右侧里程碑礼盒竖排(100..500 活跃度档位); 只点最上面一档即可领取全部已达标档位
     ZHAOXI_GIFT_CENTERS = [(0.943, 0.247), (0.943, 0.344), (0.943, 0.441),
                            (0.943, 0.538), (0.943, 0.635)]
 
     def claim_zhaoxi_gifts(self):
-        """领取朝夕心愿右侧里程碑礼盒(100..500 活跃度档位): 逐档点击,
-        每档确认弹窗或恭喜获得页出现才算领到; 最后读活跃度进度(如 350/500)"""
-        claimed = 0
-        for cx, cy in self.ZHAOXI_GIFT_CENTERS:
-            self.click(cx, cy, down_time=0.15, after_sleep=1.2)
-            if self.confirm_dialog(time_out=2) or self.close_reward_page(2):
-                claimed += 1
-            self.park_cursor()
-        if claimed:
-            self.info_set(self.tr('Zhaoxi Quests'), f'{self.tr("Claimed")} x{claimed}')
-            self.log_info(f'CalendarTask: zhaoxi milestone gifts claimed x{claimed}.', notify=True)
+        """领取朝夕心愿里程碑礼盒: 只点最上面一档即可领走全部已达标的;
+        随后读右侧轨道底部星星数字判断活跃度(满 500 结束)"""
+        self.click(*self.ZHAOXI_GIFT_CENTERS[0], down_time=0.15, after_sleep=1.2)
+        if self.confirm_dialog(time_out=2) or self.close_reward_page(2):
+            self.log_info('CalendarTask: zhaoxi milestone gifts claimed.', notify=True)
         else:
             self.log_info('CalendarTask: no zhaoxi milestone gift to claim.')
-        m = re.search(r'(\d+)\s*/\s*500', ' '.join(b.name for b in self.ocr(log=False)))
-        if m:
-            self.log_info(f'CalendarTask: zhaoxi activity {m.group(1)}/500.', notify=True)
+        self.park_cursor()
+        activity = self.read_zhaoxi_activity()
+        if activity is None:
+            return
+        if activity >= 500:
+            self.info_set(self.tr('Zhaoxi Quests'), f'{activity}/500')
+            self.log_info(f'CalendarTask: zhaoxi activity {activity}/500, milestone complete.', notify=True)
+        else:
+            self.info_set(self.tr('Zhaoxi Quests'), f'{activity}/500')
+            self.log_info(f'CalendarTask: zhaoxi activity {activity}/500.', notify=True)
+
+    def read_zhaoxi_activity(self):
+        """右侧里程碑轨道底部的星星数字 = 当前活跃度(如 300); 读不到返回 None"""
+        for b in self.ocr(log=False):
+            if (b.x > self.width * 0.88 and self.height * 0.70 < b.y < self.height * 0.85
+                    and re.fullmatch(r'\d{2,4}', b.name.strip())):
+                return int(b.name)
+        return None
 
     def confirm_zhaoxi_tasks(self):
         """确认任务: 逐个点任务卡, 从底部详情条读任务文本与进度
