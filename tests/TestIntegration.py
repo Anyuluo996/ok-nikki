@@ -160,5 +160,30 @@ class TestRealmDrainParse(unittest.TestCase):
         self.assertEqual(RealmTask.parse_claim_count(['领取奖励0次']), 0)  # 体力不足
 
 
+class TestRealmEnergyGate(unittest.TestCase):
+    """体力读数与一键次数校准(2026-10-08 实测: 0 体力时弹窗仍读出 1 次导致空转)"""
+
+    def _task(self):
+        return object.__new__(RealmTask)  # read_energy 只用正则, 不走 __init__
+
+    @staticmethod
+    def _box(text):
+        return types.SimpleNamespace(name=text)
+
+    def test_read_energy(self):
+        task = self._task()
+        self.assertEqual(task.read_energy([self._box('活跃能量 120/350'), self._box('每日幻境')]), 120)
+        self.assertEqual(task.read_energy([self._box('0/350')]), 0)
+        # 周本 0/1、任务 3/4 等其他进度不得误读为体力
+        self.assertIsNone(task.read_energy([self._box('剩余奖励次数 0/1'), self._box('3/4')]))
+
+    def test_clamp_claims_by_energy(self):
+        self.assertEqual(RealmTask.clamp_claims_by_energy(7, 300), 7)
+        self.assertEqual(RealmTask.clamp_claims_by_energy(7, 80), 2)  # 80 体力只够 2 次
+        self.assertEqual(RealmTask.clamp_claims_by_energy(1, 39), 0)  # 不足单次消耗
+        self.assertEqual(RealmTask.clamp_claims_by_energy(7, None), 7)  # 读不到不夹
+        self.assertEqual(RealmTask.clamp_claims_by_energy(1, 0), 0)
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -25,6 +25,8 @@ class RealmTask(MyBaseTask):
         (re.compile('素材激化'), '素材激化幻境'),
     ]
     CLAIM_COST = 40  # 快速挑战单次消耗(注入弹窗「消耗40活跃能量」)
+    # 体力读数(日历顶栏/试炼页 N/350); 只认 /350, 避免把周本 0/1、任务 3/4 误当体力
+    ENERGY_READOUT = re.compile(r'(\d+)\s*/\s*350')
     # 副本激化台交互提示与产物/材料格特征
     ESCALATE_PROMPT = re.compile('打开素材激化台|激化台')
     ESCALATE_BUTTON = re.compile('激化材料')
@@ -83,6 +85,12 @@ class RealmTask(MyBaseTask):
         material_count = int(self.config.get('Material Exchange Count') or 0)
         total = 0
 
+        # —— 0) 体力预检: 0 体力时任何挑战/兑换都打不了, 直接结束不尝试 ——
+        energy = self.read_energy()
+        if energy == 0:
+            self.log_info('RealmTask: active energy 0/350, nothing to challenge.', notify=True)
+            return 0
+
         # —— 1) 朝夕文本路由: 未完成任务按缺口次数精确打 ——
         for pat, realm in self.TASK_REALM_MAP:
             detail = next((d for d in self.zhaoxi_texts_today() if pat.search(d)), None)
@@ -113,20 +121,31 @@ class RealmTask(MyBaseTask):
                 self.info_set(self.tr('Weekly Realm'), f'{self.tr("Challenged")} x{made}')
         if material_count > 0:
             self.material_flow(material_count)
-        for realm in self.DRAIN_REALMS:
-            for i in range(count):
-                self.log_info(f'RealmTask: quick challenge #{i + 1} @ {realm} (total {total}).')
-                made = self.enter_realm_and_run(realm)
-                if made <= 0:
-                    self.log_info(f'RealmTask: {realm} made no progress '
-                                  '(depleted or entry missing), next.')
+        # 前面的朝夕路由/周本/素材兑换可能已耗光体力: 回日历读一次,
+        # 不足一次消耗就不进快速挑战(实测 0 体力还会空转注入弹窗)
+        energy = self.read_energy()
+        if energy is None and self.open_whim_calendar():
+            energy = self.read_energy()
+        can_quick = True
+        if energy is not None and energy < self.CLAIM_COST:
+            self.log_info(f'RealmTask: active energy {energy}/350, '
+                          f'below {self.CLAIM_COST} per claim, stop draining.', notify=True)
+            can_quick = False
+        if can_quick:
+            for realm in self.DRAIN_REALMS:
+                for i in range(count):
+                    self.log_info(f'RealmTask: quick challenge #{i + 1} @ {realm} (total {total}).')
+                    made = self.enter_realm_and_run(realm)
+                    if made <= 0:
+                        self.log_info(f'RealmTask: {realm} made no progress '
+                                      '(depleted or entry missing), next.')
+                        break
+                    total += made
+                    self.info_set(self.tr('Realm'), f'{realm} {self.tr("Challenged")} x{total}')
+                    if self.config.get('Dry Run'):
+                        break
+                if self.config.get('Dry Run') and total:
                     break
-                total += made
-                self.info_set(self.tr('Realm'), f'{realm} {self.tr("Challenged")} x{total}')
-                if self.config.get('Dry Run'):
-                    break
-            if self.config.get('Dry Run') and total:
-                break
         if total:
             self.log_info(f'RealmTask: claimed {total} realm rewards this run.', notify=True)
         else:
@@ -187,7 +206,7 @@ class RealmTask(MyBaseTask):
         if not entry:
             self.debug_screenshot('realm_no_entry')
             return 0
-        self.click_box(entry, down_time=0.15, after_sleep=3)
+        self.click_box(entry, down_time=0.15, after_sleep=1.5)
         if realm_name == self.WEEKLY_REALM:
             # 零点击预检: 周页右下就有「本周剩余奖励次数 0/1」, 没次数不开任何弹窗
             if self.weekly_remain_zero():
@@ -209,7 +228,7 @@ class RealmTask(MyBaseTask):
         if not quick:
             self.debug_screenshot('realm_no_quick')
             return 0
-        self.click_box(quick, down_time=0.15, after_sleep=2)
+        self.click_box(quick, down_time=0.15, after_sleep=1)
         # 试炼奖励弹窗: 金色「注入活跃能量」按钮(图像识别优先, 弹窗标题含同文字取 y 最大)
         inject = self.find_template('InjectEnergyButton', time_out=3)
         if inject:
@@ -227,6 +246,15 @@ class RealmTask(MyBaseTask):
         if not inject:
             self.debug_screenshot('realm_no_inject')
             return 0
+        # 弹窗页体力门: 能看到 N/350 且不足一次消耗时直接取消, 不空点注入
+        # (实测 0 体力时一键箭头仍可能读出「领取奖励1次」, 点注入只会弹能量不足)
+        energy = self.read_energy()
+        if energy is not None and energy < self.CLAIM_COST:
+            self.log_info(f'RealmTask: active energy {energy}/350 below '
+                          f'{self.CLAIM_COST}, cancel challenge.', notify=True)
+            if not self.cancel_dialog():
+                self.send_key('esc', after_sleep=1.5)
+            return 0
         claims = 1
         use_drain = self.config.get('Drain Energy') if drain is None else drain
         if use_drain:
@@ -238,13 +266,12 @@ class RealmTask(MyBaseTask):
             self.debug_screenshot('realm_dry_inject')
             self.cancel_dialog()
             return 1
-        self.click_box(inject, down_time=0.15, after_sleep=3)
+        self.click_box(inject, down_time=0.15, after_sleep=2)
         self.park_cursor()
         self.debug_screenshot('realm_after_inject')
-        # 奖励页按 F(交互键)关闭
-        self.sleep(2)
-        self.send_key('f', after_sleep=1.5)
-        self.send_key('f', after_sleep=1.5)
+        # 奖励页(可能多页)按 F 关闭: 轮询「恭喜获得」即时退出, 不盲等固定秒数
+        self.close_reward_page(3)
+        self.send_key('f', after_sleep=1)
         self.debug_screenshot('realm_after_award')
         return claims
 
@@ -266,18 +293,41 @@ class RealmTask(MyBaseTask):
         箭头在「注入活跃能量」按钮正上方 ~178px(1080p 标定 (1117,528) vs (1117,706))"""
         self.click(inject.x + inject.width / 2, inject.y - self.px(178),
                    down_time=0.1, after_sleep=1)
-        n = self.parse_claim_count(b.name for b in self.ocr(log=False))
+        boxes = self.ocr(log=False)
+        n = self.parse_claim_count(b.name for b in boxes)
         if n is None:
             self.log_info('RealmTask: claim count not readable after max-click, cancel.')
             self.debug_screenshot('realm_no_claim_count')
             self.cancel_dialog()
             return 0
+        # 弹窗读数与体力读数一致性校准(0 体力时箭头仍可能显示 1 次)
+        clamped = self.clamp_claims_by_energy(n, self.read_energy(boxes))
+        if clamped != n:
+            self.log_info(f'RealmTask: clamp claims {n} -> {clamped} by energy readout.')
+            n = clamped
         if n <= 0:
             self.log_info('RealmTask: active energy below single-claim cost, done.', notify=True)
             self.cancel_dialog()
             return 0
         self.log_info(f'RealmTask: drain mode, injecting max claims = {n}.', notify=True)
         return n
+
+    @staticmethod
+    def clamp_claims_by_energy(n, energy):
+        """用体力读数校准一键最大次数: 不足单次消耗返回 0, 超出可负担次数向下夹住;
+        体力读不到(None)时原样返回"""
+        if energy is None:
+            return n
+        afford = energy // RealmTask.CLAIM_COST
+        if afford <= 0:
+            return 0
+        return min(n, afford)
+
+    def read_energy(self, boxes=None):
+        """当前活跃能量(体力)读数; 界面没显示 N/350 时返回 None"""
+        boxes = self.ocr(log=False) if boxes is None else boxes
+        m = re.search(self.ENERGY_READOUT, ' '.join(b.name for b in boxes))
+        return int(m.group(1)) if m else None
 
     # ---------- 素材激化幻境: 进副本兑换 ----------
 
@@ -313,8 +363,8 @@ class RealmTask(MyBaseTask):
                 go = next((b for b in boxes if b.name.strip() == '前往'), None)
                 if go:
                     self.log_info('RealmTask: material level page with 前往, clicking.')
-                    self.click_box(go, down_time=0.15, after_sleep=8)
-                    return True
+                    self.click_box(go, down_time=0.15, after_sleep=2)
+                    return self._wait_dungeon_ready(8)
             if not self.open_whim_calendar():
                 self.log_info('RealmTask: enter material calendar open failed.')
                 continue
@@ -336,8 +386,19 @@ class RealmTask(MyBaseTask):
                 self.debug_screenshot('material_no_go')
                 self.send_key('esc', after_sleep=2)
                 continue
-            self.click_box(go, down_time=0.15, after_sleep=8)
-            return True
+            self.click_box(go, down_time=0.15, after_sleep=2)
+            return self._wait_dungeon_ready(8)
+        return False
+
+    def _wait_dungeon_ready(self, time_out=8):
+        """进副本加载轮询: 「打开素材激化台」提示或左上 BACKSPACE 门按钮一出现
+        就返回, 用截图轮询替代固定 8 秒盲等"""
+        start = time.time()
+        while time.time() - start < time_out:
+            boxes = self.ocr(log=False)
+            if self.in_material_dungeon(boxes) or any('激化台' in b.name for b in boxes):
+                return True
+            self.sleep(0.4)
         return False
 
     def material_prompt(self, attempts=3):

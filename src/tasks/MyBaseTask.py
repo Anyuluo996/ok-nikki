@@ -64,12 +64,12 @@ class MyBaseTask(BaseTask):
         return 'other'
 
     def wait_page(self, sig, time_out=6):
-        """等待某页面出现"""
+        """等待某页面出现(page_sig 每轮自带一次 OCR, 缩短轮询间隔提响应速度)"""
         start = time.time()
         while time.time() - start < time_out:
             if self.page_sig() == sig:
                 return True
-            self.sleep(1)
+            self.sleep(0.3)
         return False
 
     def back_to_world(self, max_esc=6):
